@@ -2,6 +2,10 @@ from collections.abc import Iterable
 
 from src.arm.candidate import generate_candidates
 from src.arm.frequent import filter_frequent_itemsets
+from src.arm.optimized_support import (
+    build_transaction_index,
+    calculate_support_indexed,
+)
 from src.arm.pruning import prune_candidates
 from src.arm.transaction import Itemset
 
@@ -16,6 +20,9 @@ def apriori(
 
     if not transactions:
         return {}
+
+    # Build the index once and reuse it for every candidate.
+    transaction_index = build_transaction_index(transactions)
 
     items = set()
 
@@ -32,11 +39,17 @@ def apriori(
     k = 1
 
     while candidates:
-        frequent = filter_frequent_itemsets(
-            transactions,
-            candidates,
-            min_support,
-        )
+        frequent: dict[Itemset, float] = {}
+
+        for candidate in candidates:
+            support = calculate_support_indexed(
+                candidate,
+                transaction_index,
+                len(transactions),
+            )
+
+            if support >= min_support:
+                frequent[candidate] = support
 
         if not frequent:
             break
