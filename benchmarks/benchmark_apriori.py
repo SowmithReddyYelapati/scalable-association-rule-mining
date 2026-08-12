@@ -13,7 +13,7 @@ def generate_transactions(
     num_items: int,
     items_per_transaction: int = 10,
 ):
-    """Generate transactions containing frequently co-occurring items."""
+    """Generate deterministic transactions with recurring item patterns."""
 
     items = [f"Item{i}" for i in range(num_items)]
     core_items = items[:10]
@@ -54,11 +54,9 @@ def benchmark(
     num_items: int,
     min_support: float,
 ):
-    """Run Apriori and return benchmark information."""
-
     transactions = generate_transactions(
-        num_transactions,
-        num_items,
+        num_transactions=num_transactions,
+        num_items=num_items,
     )
 
     start = time.perf_counter()
@@ -70,14 +68,6 @@ def benchmark(
 
     elapsed = time.perf_counter() - start
 
-    result = {
-        "transactions": num_transactions,
-        "items": num_items,
-        "min_support": min_support,
-        "frequent_itemsets": len(frequent_itemsets),
-        "time": elapsed,
-    }
-
     print(
         f"Transactions: {num_transactions:,} | "
         f"Items: {num_items} | "
@@ -86,36 +76,30 @@ def benchmark(
         f"Time: {elapsed:.4f}s"
     )
 
-    return result
-
 
 if __name__ == "__main__":
     random.seed(42)
 
-    results = []
-
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=20,
-            min_support=0.20,
-        )
+    benchmark(
+        num_transactions=10_000,
+        num_items=40,
+        min_support=0.20,
     )
 
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=30,
-            min_support=0.20,
-        )
+    benchmark(
+        num_transactions=25_000,
+        num_items=40,
+        min_support=0.20,
     )
 
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=40,
-            min_support=0.20,
-        )
+    benchmark(
+        num_transactions=50_000,
+        num_items=40,
+        min_support=0.20,
     )
 
-    print("\nBenchmark completed.")
+    benchmark(
+        num_transactions=100_000,
+        num_items=40,
+        min_support=0.20,
+    )
