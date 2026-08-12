@@ -58,6 +58,8 @@ def benchmark(
     num_items: int,
     min_support: float,
 ):
+    """Run Apriori and return benchmark results."""
+
     transactions = generate_transactions(
         num_transactions=num_transactions,
         num_items=num_items,
