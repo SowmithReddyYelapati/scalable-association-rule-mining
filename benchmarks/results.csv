@@ -1,4 +1,3 @@
-transactions,items,min_support,frequent_itemsets,time_seconds
 10000,40,0.2,55,0.0919
 25000,40,0.2,55,0.271
 50000,40,0.2,55,0.5581
