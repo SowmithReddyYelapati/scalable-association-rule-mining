@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Real-world dataset
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Benchmark generated outputs
+benchmarks/results.csv
+benchmarks/scalability.png
