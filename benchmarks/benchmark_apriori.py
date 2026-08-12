@@ -1,3 +1,4 @@
+import csv
 import random
 import sys
 import time
@@ -8,12 +9,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.arm.apriori import apriori
 
 
+RESULTS_FILE = Path(__file__).parent / "results.csv"
+
+
 def generate_transactions(
     num_transactions: int,
     num_items: int,
     items_per_transaction: int = 10,
 ):
-    """Generate transactions containing frequently co-occurring items."""
+    """Generate deterministic transactions with recurring item patterns."""
 
     items = [f"Item{i}" for i in range(num_items)]
     core_items = items[:10]
@@ -54,11 +58,11 @@ def benchmark(
     num_items: int,
     min_support: float,
 ):
-    """Run Apriori and return benchmark information."""
+    """Run Apriori and return benchmark results."""
 
     transactions = generate_transactions(
-        num_transactions,
-        num_items,
+        num_transactions=num_transactions,
+        num_items=num_items,
     )
 
     start = time.perf_counter()
@@ -75,7 +79,7 @@ def benchmark(
         "items": num_items,
         "min_support": min_support,
         "frequent_itemsets": len(frequent_itemsets),
-        "time": elapsed,
+        "time_seconds": round(elapsed, 4),
     }
 
     print(
@@ -89,33 +93,50 @@ def benchmark(
     return result
 
 
+def save_results(results):
+    """Save benchmark results to CSV."""
+
+    fieldnames = [
+        "transactions",
+        "items",
+        "min_support",
+        "frequent_itemsets",
+        "time_seconds",
+    ]
+
+    with RESULTS_FILE.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames,
+        )
+
+        writer.writeheader()
+        writer.writerows(results)
+
+
 if __name__ == "__main__":
     random.seed(42)
 
     results = []
 
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=20,
-            min_support=0.20,
+    for num_transactions in [
+        10_000,
+        25_000,
+        50_000,
+        100_000,
+    ]:
+        results.append(
+            benchmark(
+                num_transactions=num_transactions,
+                num_items=40,
+                min_support=0.20,
+            )
         )
-    )
 
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=30,
-            min_support=0.20,
-        )
-    )
+    save_results(results)
 
-    results.append(
-        benchmark(
-            num_transactions=10_000,
-            num_items=40,
-            min_support=0.20,
-        )
-    )
-
-    print("\nBenchmark completed.")
+    print(f"\nBenchmark results saved to: {RESULTS_FILE}")
