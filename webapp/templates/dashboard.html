@@ -1,0 +1,768 @@
+{% extends "base.html" %}
+
+{% block title %}Configure Apriori | ARM Lab{% endblock %}
+
+{% block content %}
+
+
+<!-- =========================================================
+     FLASH MESSAGES
+     ========================================================= -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="messages">
+    {% for category, message in messages %}
+    <div class="message {{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+
+<!-- =========================================================
+     HERO / PAGE HEADER
+     ========================================================= -->
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <div class="eyebrow">ANALYSIS</div>
+
+        <h1>Configure Apriori</h1>
+
+        <p>
+            Discover meaningful relationships between products
+            hidden inside transactional datasets. Adjust the mining
+            parameters below to control pattern discovery.
+        </p>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     DATASET UPLOAD SECTION
+     ========================================================= -->
+
+<section class="section" id="upload">
+
+    <div class="section-heading">
+
+        <span class="eyebrow dark">DATASET</span>
+
+        <h2>Upload Transaction Dataset</h2>
+
+        <p>
+            Upload a transactional CSV file to begin
+            association rule mining, or use the built-in sample dataset.
+        </p>
+
+    </div>
+
+
+    <div class="dataset-actions">
+
+        <!-- Upload Card -->
+        <div class="upload-card">
+
+            <div class="upload-icon">📁</div>
+
+            <h3>Upload Dataset</h3>
+
+            <p>
+                Upload a CSV file containing your transaction data.
+                Supported format: .csv
+            </p>
+
+            <form
+                method="POST"
+                action="{{ url_for('upload') }}"
+                enctype="multipart/form-data"
+                id="uploadForm"
+            >
+
+                <div class="upload-zone" id="uploadZone">
+
+                    <input
+                        type="file"
+                        name="dataset"
+                        id="dataset"
+                        accept=".csv"
+                    >
+
+                    <span class="upload-zone-icon">☁️</span>
+
+                    <div class="upload-zone-text" id="uploadZoneText">
+                        Choose CSV File
+                    </div>
+
+                    <div class="upload-zone-hint">
+                        or drag and drop your CSV here
+                    </div>
+
+                    <span
+                        class="upload-file-name"
+                        id="fileName"
+                    ></span>
+
+                </div>
+
+                <span class="file-format-tag">
+                    Supported format: .csv
+                </span>
+
+                <button
+                    type="submit"
+                    class="button primary full"
+                    style="margin-top: 16px;"
+                    id="uploadButton"
+                >
+                    Upload Dataset
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- Sample Dataset Card -->
+        <div class="sample-card">
+
+            <div class="sample-icon">🛒</div>
+
+            <h3>Use Sample Dataset</h3>
+
+            <p>
+                Use the built-in Online Retail dataset to
+                explore the system immediately — no upload required.
+            </p>
+
+            <div class="sample-info">
+                <span>🏷️ Online Retail Dataset</span>
+                <span>📊 20,136 transactions</span>
+                <span>🧺 3,925 unique products</span>
+                <span>📅 UK e-commerce transaction data</span>
+            </div>
+
+            <form
+                method="POST"
+                action="{{ url_for('use_sample') }}"
+            >
+                <button
+                    type="submit"
+                    class="button secondary full"
+                    id="sampleButton"
+                >
+                    Use Sample Dataset
+                </button>
+            </form>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+{% if analysis.needs_mapping %}
+
+<section class="section" id="manual-mapping">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">COLUMN MAPPING REQUIRED</span>
+        <h2>Help us understand your dataset</h2>
+        <p>Select which columns represent the transaction identifier, product name, and optional quantity.</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('map_columns') }}" class="configuration-card">
+
+        <div class="parameters-grid">
+
+            <div class="parameter-card">
+                <h3>Transaction Candidate</h3>
+                <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Column identifying basket or order</p>
+                <select name="transaction_col" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13.5px;">
+                    {% for col in analysis.mapping_columns %}
+                        <option value="{{ col }}" {% if analysis.mapping_suggestion.get('transaction') == col %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="parameter-card">
+                <h3>Product Candidate</h3>
+                <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Column containing item/product name</p>
+                <select name="product_col" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13.5px;">
+                    {% for col in analysis.mapping_columns %}
+                        <option value="{{ col }}" {% if analysis.mapping_suggestion.get('product') == col %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="parameter-card">
+                <h3>Quantity Candidate (Optional)</h3>
+                <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Item quantity if available</p>
+                <select name="quantity_col" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13.5px;">
+                    <option value="None">None</option>
+                    {% for col in analysis.mapping_columns %}
+                        <option value="{{ col }}" {% if analysis.mapping_suggestion.get('quantity') == col %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        </div>
+
+        <button type="submit" class="button primary" style="margin-top:16px;">
+            Apply Column Mapping &amp; Continue →
+        </button>
+
+    </form>
+
+</section>
+
+{% endif %}
+
+
+<!-- =========================================================
+     DATASET OVERVIEW & SUMMARY (only when dataset loaded)
+     ========================================================= -->
+
+{% if analysis.metrics and not analysis.needs_mapping %}
+
+<section class="section" id="dataset-summary">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">DATASET OVERVIEW</span>
+        <h2>Dataset Statistics</h2>
+        <p>Summary metrics calculated from the loaded dataset.</p>
+    </div>
+
+    <!-- Status bar -->
+    <div class="dataset-header">
+
+        <div class="dataset-header-left">
+            <span class="status-dot"></span>
+            <div>
+                <strong>{{ analysis.dataset_name }}</strong>
+                <small>✓ Dataset Ready</small>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('reset') }}">
+            <button class="reset-button" type="submit">
+                Clear Dataset
+            </button>
+        </form>
+
+    </div>
+
+    <!-- Structure Metadata Box -->
+    {% if analysis.metrics.transaction_col_display %}
+    <div class="parameter-note" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start; gap: 4px;">
+        <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">
+            Detected Dataset Structure:
+        </div>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--muted);">
+            <span><strong>Transaction:</strong> {{ analysis.metrics.transaction_col_display }}</span>
+            <span><strong>Product:</strong> {{ analysis.metrics.product_col_display }}</span>
+            <span><strong>Quantity:</strong> {{ analysis.metrics.quantity_col_display }}</span>
+            {% if analysis.metrics.rows_raw %}
+            <span><strong>Rows Processed:</strong> {{ "{:,}".format(analysis.metrics.rows_raw) }} ({{ "{:,}".format(analysis.metrics.rows_removed) }} cleaned)</span>
+            {% endif %}
+        </div>
+        {% if analysis.metrics.inferred_reason %}
+        <div style="margin-top: 4px; color: var(--primary); font-size: 12.5px; font-weight: 600;">
+            ⓘ {{ analysis.metrics.inferred_reason }}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+
+    <!-- 4 metric cards -->
+    <div class="stats">
+
+        <div class="card">
+            <span>Transactions</span>
+            <strong>
+                {{ "{:,}".format(analysis.metrics["transactions"]) }}
+            </strong>
+            <small>Total transactions</small>
+        </div>
+
+        <div class="card">
+            <span>Unique Products</span>
+            <strong>
+                {{ "{:,}".format(analysis.metrics["products"]) }}
+            </strong>
+            <small>Distinct items found</small>
+        </div>
+
+        <div class="card">
+            <span>Average Items / Transaction</span>
+            <strong>
+                {{ "%.2f"|format(analysis.metrics["average_items"]) }}
+            </strong>
+            <small>Items per basket</small>
+        </div>
+
+        <div class="card">
+            <span>Largest Transaction</span>
+            <strong>
+                {{ "{:,}".format(analysis.metrics["largest_transaction"]) }}
+            </strong>
+            <small>Max items in one order</small>
+        </div>
+
+    </div>
+
+
+    <!-- Dataset Preview -->
+    {% if preview %}
+
+    <div class="dataset-preview">
+
+        <div class="dataset-preview-header">
+            <h4>Dataset Preview</h4>
+            <span>
+                Displaying first {{ preview|length }} transactions
+                &middot;
+                {{ "{:,}".format(analysis.metrics["transactions"]) }} total
+            </span>
+        </div>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Products in Transaction</th>
+                    <th>Items</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for txn in preview %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+
+                    <td>
+                        <div class="product-list">
+                            {% for item in txn[:6] %}
+                                <span class="product-tag">{{ item }}</span>
+                            {% endfor %}
+
+                            {% if txn|length > 6 %}
+                                <span
+                                    class="product-tag"
+                                    style="background:#f1f5f9;color:var(--muted);"
+                                >
+                                    +{{ txn|length - 6 }} more
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <td>{{ txn|length }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+    {% endif %}
+
+</section>
+
+{% endif %}
+
+
+<!-- =========================================================
+     CURRENT ALGORITHM CARD
+     ========================================================= -->
+
+<section class="section" id="current-algorithm">
+
+    <div class="section-label">⚙️ CURRENT ALGORITHM</div>
+
+    <div class="algorithm active" style="margin-top: 10px;">
+
+        <div class="algorithm-top">
+            <span class="algorithm-number">CURRENT</span>
+            <span class="algorithm-badge available">✓ Available</span>
+        </div>
+
+        <h3>Apriori</h3>
+
+        <p>
+            Candidate-generation and pruning based frequent-pattern mining.
+            The fundamental algorithm for discovering association rules in transactional databases.
+        </p>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     ALGORITHM ROADMAP
+     ========================================================= -->
+
+<section class="section" id="algorithm-roadmap">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">ALGORITHM ROADMAP</span>
+        <h2>Choose Mining Algorithm</h2>
+        <p>
+            Apriori is currently implemented.
+            FP-Growth and Eclat will be introduced in future releases.
+        </p>
+    </div>
+
+    <div class="algorithms">
+
+        <!-- Apriori — ACTIVE -->
+        <div class="algorithm active">
+
+            <div class="algorithm-top">
+                <span class="algorithm-number">01</span>
+                <span class="algorithm-badge available">✓ Implemented</span>
+            </div>
+
+            <h3>Apriori</h3>
+
+            <p>
+                Candidate generation and pruning based
+                frequent-pattern mining.
+            </p>
+
+        </div>
+
+
+        <!-- FP-Growth — DISABLED -->
+        <div class="algorithm disabled" title="Coming soon">
+
+            <div class="algorithm-top">
+                <span class="algorithm-number">02</span>
+                <span class="algorithm-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <h3>FP-Growth</h3>
+
+            <p>
+                Tree-based frequent-pattern mining.
+            </p>
+
+        </div>
+
+
+        <!-- Eclat — DISABLED -->
+        <div class="algorithm disabled" title="Coming soon">
+
+            <div class="algorithm-top">
+                <span class="algorithm-number">03</span>
+                <span class="algorithm-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <h3>Eclat</h3>
+
+            <p>
+                Vertical transaction-ID based mining.
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     APRIORI CONFIGURATION (SIDE BY SIDE ON DESKTOP)
+     ========================================================= -->
+
+<section class="section" id="configure">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">APRIORI CONFIGURATION</span>
+        <h2>Configure Parameters</h2>
+        <p>
+            Adjust the mining parameters to control how many
+            patterns are discovered.
+        </p>
+    </div>
+
+    <form
+        method="POST"
+        action="{{ url_for('analyze') }}"
+        class="configuration-card"
+        id="analysisForm"
+    >
+
+        <input type="hidden" name="algorithm" value="apriori">
+
+        <!-- SIDE BY SIDE GRID (Desktop: 2 columns, Mobile: 1 column) -->
+        <div class="parameters-grid">
+
+            <!-- MINIMUM SUPPORT CARD -->
+            <div class="parameter-card">
+
+                <div class="parameter-header">
+                    <div>
+                        <h3>Minimum Support</h3>
+                        <p>
+                            Minimum frequency required for an itemset
+                            to be considered frequent.
+                        </p>
+                    </div>
+                    <div
+                        class="parameter-value"
+                        id="supportValue"
+                    >2.0%</div>
+                </div>
+
+                <div class="slider-wrapper">
+
+                    <input
+                        type="range"
+                        id="support"
+                        name="support"
+                        min="0.001"
+                        max="0.10"
+                        step="0.001"
+                        value="0.02"
+                        aria-label="Minimum support"
+                    >
+
+                    <div class="slider-labels">
+                        <span>0.1%</span>
+                        <span>10%</span>
+                    </div>
+
+                </div>
+
+                <div class="parameter-note">
+                    💡
+                    <p>
+                        Higher support finds only very common product combinations.
+                        Lower support discovers less frequent patterns.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <!-- MINIMUM CONFIDENCE CARD -->
+            <div class="parameter-card">
+
+                <div class="parameter-header">
+                    <div>
+                        <h3>Minimum Confidence</h3>
+                        <p>
+                            Minimum reliability required for an
+                            association rule.
+                        </p>
+                    </div>
+                    <div
+                        class="parameter-value"
+                        id="confidenceValue"
+                    >60%</div>
+                </div>
+
+                <div class="slider-wrapper">
+
+                    <input
+                        type="range"
+                        id="confidence"
+                        name="confidence"
+                        min="0.10"
+                        max="1.00"
+                        step="0.01"
+                        value="0.60"
+                        aria-label="Minimum confidence"
+                    >
+
+                    <div class="slider-labels">
+                        <span>10%</span>
+                        <span>100%</span>
+                    </div>
+
+                </div>
+
+                <div class="parameter-note">
+                    💡
+                    <p>
+                        Higher confidence produces more reliable rules
+                        but may reduce the number of rules.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- LIFT INFORMATION BOX -->
+        <div class="lift-info">
+
+            <span class="lift-info-icon">ⓘ</span>
+
+            <div>
+                <strong>Lift is calculated automatically</strong>
+                <p>
+                    Lift measures how strongly two products are associated
+                    compared with what would be expected if they were independent.
+                    It is calculated for every rule and available as a result metric.
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- RUN BUTTON -->
+        <button
+            type="submit"
+            class="primary-button"
+            id="runAnalysisButton"
+        >
+            <span id="runButtonIcon">🚀</span>
+            <span id="runButtonText">Run Apriori Analysis</span>
+        </button>
+
+    </form>
+
+</section>
+
+
+<!-- =========================================================
+     WHAT HAPPENS NEXT
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="process-section">
+
+        <div class="section-label">WHAT HAPPENS NEXT?</div>
+
+        <h2>From transactions to useful rules</h2>
+
+        <div class="process">
+
+            <div class="process-step">
+                <div class="process-number">1</div>
+                <div>
+                    <h3>Find frequent itemsets</h3>
+                    <p>
+                        Apriori identifies combinations that
+                        satisfy the minimum support.
+                    </p>
+                </div>
+            </div>
+
+            <div class="process-arrow">→</div>
+
+            <div class="process-step">
+                <div class="process-number">2</div>
+                <div>
+                    <h3>Generate rules</h3>
+                    <p>
+                        Frequent itemsets are converted into
+                        possible association rules.
+                    </p>
+                </div>
+            </div>
+
+            <div class="process-arrow">→</div>
+
+            <div class="process-step">
+                <div class="process-number">3</div>
+                <div>
+                    <h3>Calculate metrics</h3>
+                    <p>
+                        Support, confidence and lift are
+                        calculated for each rule.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     PAGE JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const supportSlider =
+        document.getElementById("support");
+
+    const supportValue =
+        document.getElementById("supportValue");
+
+    function updateSupport() {
+        const v = parseFloat(supportSlider.value);
+        supportValue.textContent =
+            (v * 100).toFixed(1) + "%";
+    }
+
+    if (supportSlider && supportValue) {
+        supportSlider.addEventListener("input", updateSupport);
+        updateSupport();
+    }
+
+
+    const confidenceSlider =
+        document.getElementById("confidence");
+
+    const confidenceValue =
+        document.getElementById("confidenceValue");
+
+    function updateConfidence() {
+        const v = parseFloat(confidenceSlider.value);
+        confidenceValue.textContent =
+            Math.round(v * 100) + "%";
+    }
+
+    if (confidenceSlider && confidenceValue) {
+        confidenceSlider.addEventListener("input", updateConfidence);
+        updateConfidence();
+    }
+
+
+    const form =
+        document.getElementById("analysisForm");
+
+    const runButton =
+        document.getElementById("runAnalysisButton");
+
+    const runButtonText =
+        document.getElementById("runButtonText");
+
+    const runButtonIcon =
+        document.getElementById("runButtonIcon");
+
+    if (form && runButton) {
+        form.addEventListener("submit", function () {
+            runButton.disabled = true;
+            if (runButtonIcon) runButtonIcon.textContent = "⏳";
+            if (runButtonText) runButtonText.textContent = "Running Apriori...";
+        });
+    }
+
+});
+
+</script>
+
+
+{% endblock %}

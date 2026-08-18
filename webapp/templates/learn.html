@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+
+{% block title %}How It Works | ARM Lab{% endblock %}
+
+{% block content %}
+
+
+<!-- =========================================================
+     PAGE HEADER
+     ========================================================= -->
+
+<section class="results-header">
+
+    <div>
+        <span class="eyebrow dark">UNDERSTANDING ASSOCIATION RULE MINING</span>
+        <h1>How It Works</h1>
+        <p>
+            Learn how transaction data is transformed into
+            frequent itemsets and meaningful association rules.
+        </p>
+    </div>
+
+    <div class="results-actions">
+        <a href="/" class="button secondary-dark">
+            ← Start Mining
+        </a>
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     MINING PIPELINE FLOW
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">MINING PIPELINE</span>
+        <h2>From raw data to useful insights</h2>
+        <p>
+            The entire process flows through six stages,
+            transforming your uploaded CSV into actionable
+            association rules.
+        </p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;">
+
+        <!-- Pipeline flow diagram -->
+        <div class="pipeline-flow">
+
+            <div class="pipeline-step">
+                <span class="step-icon">📄</span>
+                CSV Dataset
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">🔄</span>
+                Transaction Preprocessing
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">📦</span>
+                Frequent Itemsets
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">📐</span>
+                Candidate Generation &amp; Pruning
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">📜</span>
+                Association Rules
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">📊</span>
+                Support · Confidence · Lift
+            </div>
+
+            <div class="pipeline-connector active"></div>
+
+            <div class="pipeline-step">
+                <span class="step-icon">💡</span>
+                Useful Insights
+            </div>
+
+        </div>
+
+
+        <!-- Pipeline stage descriptions -->
+        <div class="metric-explanation" style="grid-template-columns:1fr;gap:10px;margin-bottom:0;">
+
+            <div>
+                <strong>01 · Dataset Upload</strong>
+                <span>
+                    Upload a transactional CSV file or use the built-in
+                    Online Retail dataset to get started immediately.
+                </span>
+            </div>
+
+            <div>
+                <strong>02 · Transaction Preprocessing</strong>
+                <span>
+                    Raw rows are cleaned and grouped by transaction ID.
+                    Each transaction becomes a set of product identifiers.
+                    Cancelled orders and missing values are removed.
+                </span>
+            </div>
+
+            <div>
+                <strong>03 · Frequent Itemset Generation</strong>
+                <span>
+                    Apriori scans all transactions to find product
+                    combinations that appear in at least
+                    <em>minimum support</em> fraction of transactions.
+                </span>
+            </div>
+
+            <div>
+                <strong>04 · Candidate Generation &amp; Pruning</strong>
+                <span>
+                    The Apriori property: every subset of a frequent
+                    itemset must also be frequent. This allows pruning
+                    of infrequent candidates early to reduce computation.
+                </span>
+            </div>
+
+            <div>
+                <strong>05 · Association Rule Generation</strong>
+                <span>
+                    Each frequent itemset is split into antecedent (IF)
+                    and consequent (THEN) parts. Only rules satisfying
+                    <em>minimum confidence</em> are kept.
+                </span>
+            </div>
+
+            <div>
+                <strong>06 · Metric Calculation</strong>
+                <span>
+                    Support, confidence and lift are calculated for
+                    every rule. Results are ranked by lift — the
+                    strongest associations appear first.
+                </span>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     HOW APRIORI WORKS
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">APRIORI ALGORITHM</span>
+        <h2>How Apriori works</h2>
+        <p>
+            Apriori is a classic algorithm for frequent itemset
+            mining, first proposed by Agrawal &amp; Srikant (1994).
+            It uses the <em>Apriori property</em> to systematically
+            reduce the search space.
+        </p>
+    </div>
+
+    <div class="configuration-card">
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 1 — Find frequent 1-itemsets</label>
+                    <p>
+                        Count how often each individual product
+                        appears across all transactions.
+                        Products appearing in fewer than
+                        <em>min_support × |T|</em> transactions
+                        are discarded.
+                    </p>
+                </div>
+                <div class="parameter-value">k = 1</div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 2 — Generate k-itemset candidates</label>
+                    <p>
+                        Combine pairs of frequent (k-1)-itemsets
+                        that share a common prefix to produce
+                        candidate k-itemsets.
+                    </p>
+                </div>
+                <div class="parameter-value">k → k+1</div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 3 — Prune using the Apriori property</label>
+                    <p>
+                        Any candidate whose (k-1)-item subsets are
+                        not all frequent is removed before counting.
+                        This dramatically reduces the number of
+                        candidates to evaluate.
+                    </p>
+                </div>
+                <div class="parameter-value">Prune</div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 4 — Count support</label>
+                    <p>
+                        Scan the transaction database to count
+                        the actual support of each remaining candidate.
+                        Candidates below <em>min_support</em> are eliminated.
+                    </p>
+                </div>
+                <div class="parameter-value">Count</div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 5 — Repeat until no new frequent itemsets</label>
+                    <p>
+                        Increment k and repeat steps 2–4 until no new
+                        frequent itemsets can be formed.
+                        All collected frequent itemsets are returned.
+                    </p>
+                </div>
+                <div class="parameter-value">Repeat</div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Step 6 — Generate association rules</label>
+                    <p>
+                        For each frequent itemset, generate all
+                        possible antecedent → consequent splits.
+                        Rules satisfying <em>min_confidence</em> are kept.
+                        Lift is calculated for each rule.
+                    </p>
+                </div>
+                <div class="parameter-value">Rules</div>
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     METRIC FORMULAS
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">RULE METRICS</span>
+        <h2>Support · Confidence · Lift</h2>
+        <p>
+            Three key metrics are calculated for every
+            association rule.
+        </p>
+    </div>
+
+    <div class="metric-explanation">
+
+        <div>
+            <strong>Support</strong>
+            <span>
+                Measures how frequently an itemset appears
+                across all transactions. High support means
+                the combination is very common.
+            </span>
+            <span class="formula">
+                Support(A∪B) = freq(A∪B) / |T|
+            </span>
+        </div>
+
+        <div>
+            <strong>Confidence</strong>
+            <span>
+                Among transactions containing A, the fraction
+                that also contain B. Measures the reliability
+                of the rule A → B.
+            </span>
+            <span class="formula">
+                Confidence(A→B) = Support(A∪B) / Support(A)
+            </span>
+        </div>
+
+        <div>
+            <strong>Lift</strong>
+            <span>
+                Measures how much stronger the association is
+                compared to independent occurrence.
+                Lift &gt; 1 means positive association.
+            </span>
+            <span class="formula">
+                Lift(A→B) = Confidence(A→B) / Support(B)
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     EXAMPLE RULE
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">EXAMPLE</span>
+        <h2>Reading an association rule</h2>
+        <p>
+            An association rule has the form:
+            <strong>Antecedent → Consequent</strong>
+        </p>
+    </div>
+
+    <div class="configuration-card">
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Example Rule</label>
+                    <p>
+                        <strong>Bread + Butter → Milk</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Support: 4.25%</label>
+                    <p>
+                        Bread, Butter and Milk appear together
+                        in 4.25% of all transactions.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Confidence: 68.40%</label>
+                    <p>
+                        Among customers who buy Bread and Butter,
+                        68.40% also buy Milk.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="parameter">
+            <div class="parameter-header">
+                <div>
+                    <label>Lift: 1.72</label>
+                    <p>
+                        Customers who buy Bread and Butter are
+                        1.72× more likely to also buy Milk than
+                        a random customer.
+                        This is a positive, useful association.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     PROJECT ROADMAP
+     ========================================================= -->
+
+<section class="section insight">
+
+    <span class="eyebrow dark">PROJECT ROADMAP</span>
+
+    <h2>What&apos;s next?</h2>
+
+    <p>
+        Apriori is currently implemented as the first
+        frequent-pattern mining algorithm in this project.
+        FP-Growth and Eclat will be implemented next,
+        enabling side-by-side comparison of runtime,
+        scalability, and result quality across all three
+        algorithms.
+    </p>
+
+    <div class="metric-explanation" style="margin-bottom:0;">
+
+        <div>
+            <strong>✓ Apriori</strong>
+            <span>Implemented and available now.</span>
+        </div>
+
+        <div>
+            <strong>🔒 FP-Growth</strong>
+            <span>
+                Coming soon — FP-tree based mining.
+                More efficient on dense datasets.
+            </span>
+        </div>
+
+        <div>
+            <strong>🔒 Eclat</strong>
+            <span>
+                Coming soon — vertical TID-set mining.
+                Uses set intersection for support counting.
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+{% endblock %}

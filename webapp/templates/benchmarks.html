@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmarks | ARM Lab{% endblock %}
+
+{% block content %}
+
+
+<!-- =========================================================
+     PAGE HEADER
+     ========================================================= -->
+
+<section class="results-header">
+
+    <div>
+        <span class="eyebrow dark">PERFORMANCE &amp; SCALABILITY</span>
+        <h1>Apriori Benchmarks</h1>
+        <p>
+            Evaluate how the Apriori algorithm performs as
+            the minimum support threshold changes on real-world
+            transactional data.
+        </p>
+    </div>
+
+    <div class="results-actions">
+        <a href="/" class="button secondary-dark">
+            ← Analyze Dataset
+        </a>
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     DATASET OVERVIEW CARDS
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">REAL-WORLD DATASET</span>
+        <h2>Online Retail Benchmark</h2>
+        <p>
+            Results generated from the UCI Online Retail dataset —
+            a real-world UK e-commerce transaction log.
+        </p>
+    </div>
+
+    <div class="stats">
+
+        <div class="card">
+            <span>Transactions</span>
+            <strong>20,136</strong>
+            <small>Processed transactions</small>
+        </div>
+
+        <div class="card">
+            <span>Unique Products</span>
+            <strong>3,925</strong>
+            <small>Distinct items</small>
+        </div>
+
+        <div class="card">
+            <span>Algorithm</span>
+            <strong>Apriori</strong>
+            <small>Candidate-based mining</small>
+        </div>
+
+        <div class="card">
+            <span>Status</span>
+            <strong>✓ Ready</strong>
+            <small>Benchmark data available</small>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     BENCHMARK RESULTS TABLE
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">EXPERIMENTS</span>
+        <h2>Support vs. Frequent Itemsets</h2>
+        <p>
+            Lowering minimum support allows more itemsets to
+            qualify as frequent, increasing both the number of
+            results and the computational workload.
+        </p>
+    </div>
+
+    <div class="table-card">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Minimum Support</th>
+                    <th>Frequent Itemsets</th>
+                    <th>Interpretation</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <tr>
+                    <td><strong>5%</strong></td>
+                    <td>Benchmark result</td>
+                    <td>
+                        High threshold → very few common patterns.
+                        Fast runtime.
+                    </td>
+                    <td>
+                        <span class="metric-neutral">Planned</span>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td><strong>2%</strong></td>
+                    <td>Benchmark result</td>
+                    <td>
+                        More patterns become frequent.
+                        Runtime increases notably.
+                    </td>
+                    <td>
+                        <span class="metric-neutral">Planned</span>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td><strong>1%</strong></td>
+                    <td>
+                        <strong>1,976</strong>
+                        <span style="color:var(--muted);font-size:12px;margin-left:4px;">itemsets</span>
+                    </td>
+                    <td>
+                        Detailed real-world experiment.
+                        Significant candidate explosion.
+                    </td>
+                    <td>
+                        <span class="metric-positive">✓ Measured</span>
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     SCALABILITY EXPLANATION
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">SCALABILITY</span>
+        <h2>Why scalability matters</h2>
+        <p>
+            Association rule mining can be computationally
+            expensive. Understanding the trade-offs helps
+            choose the right algorithm and parameters.
+        </p>
+    </div>
+
+    <div class="metric-explanation">
+
+        <div>
+            <strong>Candidate Generation</strong>
+            <span>
+                Apriori repeatedly generates candidate itemsets
+                from previously discovered frequent itemsets.
+                The number of candidates can grow exponentially
+                at low support thresholds.
+            </span>
+        </div>
+
+        <div>
+            <strong>Multiple Database Scans</strong>
+            <span>
+                Traditional Apriori requires one full database
+                scan per itemset size k. This is expensive on
+                very large transaction datasets.
+            </span>
+        </div>
+
+        <div>
+            <strong>Support Threshold Effect</strong>
+            <span>
+                Lowering the threshold by even 1% can produce
+                dramatically more candidates and frequent itemsets,
+                increasing runtime nonlinearly.
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     FUTURE COMPARISON
+     ========================================================= -->
+
+<section class="section insight">
+
+    <span class="eyebrow dark">FUTURE COMPARISON</span>
+
+    <h2>Apriori vs. FP-Growth vs. Eclat</h2>
+
+    <p>
+        FP-Growth and Eclat will be implemented in the next
+        phase of this project. All three algorithms will be
+        evaluated on the same datasets with comparable
+        mining parameters to enable direct runtime and
+        scalability comparisons.
+    </p>
+
+    <div class="metric-explanation" style="margin-bottom:0;">
+
+        <div>
+            <strong>✓ Apriori</strong>
+            <span>
+                Implemented and benchmarked.
+                Candidate generation approach.
+            </span>
+        </div>
+
+        <div>
+            <strong>🔒 FP-Growth</strong>
+            <span>
+                Coming soon — FP-tree based mining.
+                No repeated database scans required.
+            </span>
+        </div>
+
+        <div>
+            <strong>🔒 Eclat</strong>
+            <span>
+                Coming soon — vertical TID-set mining.
+                Uses set intersection for support counting.
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+{% endblock %}

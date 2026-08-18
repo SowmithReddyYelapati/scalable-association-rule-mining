@@ -1,0 +1,700 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results | ARM Lab{% endblock %}
+
+
+{% block content %}
+
+
+<!-- =========================================================
+     RESULTS HEADER
+     ========================================================= -->
+
+<section class="results-header">
+
+    <div>
+
+        <span class="eyebrow dark">
+            APRIORI ANALYSIS COMPLETE
+        </span>
+
+        <h1>Analysis Results</h1>
+
+        <p>
+            Your dataset has been processed using the
+            Apriori frequent-pattern mining algorithm.
+        </p>
+
+    </div>
+
+    <div class="results-actions">
+
+        <a
+            href="{{ url_for('download_csv') }}"
+            class="button secondary"
+            id="downloadCsvBtn"
+        >
+            ⬇ Download Rules CSV
+        </a>
+
+        <a
+            href="/"
+            class="button secondary-dark"
+        >
+            ← New Analysis
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     FLASH MESSAGES
+     ========================================================= -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<section class="flash-section">
+    {% for category, message in messages %}
+    <div class="flash-message {{ category }}">{{ message }}</div>
+    {% endfor %}
+</section>
+{% endif %}
+{% endwith %}
+
+
+<!-- =========================================================
+     ANALYSIS SUMMARY — 4 metric cards
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">SUMMARY</span>
+        <h2>What Apriori discovered</h2>
+        <p>A quick overview of the dataset and mining results.</p>
+    </div>
+
+    <div class="stats">
+
+        <!-- Frequent Itemsets -->
+        <div class="card">
+            <span>Frequent Itemsets</span>
+            <strong>{{ itemsets|length }}</strong>
+            <small>Frequent patterns discovered</small>
+        </div>
+
+        <!-- Association Rules -->
+        <div class="card">
+            <span>Association Rules</span>
+            <strong>{{ rules|length }}</strong>
+            <small>Rules satisfying all filters</small>
+        </div>
+
+        <!-- Execution Time -->
+        <div class="card">
+            <span>Execution Time</span>
+            <strong>
+                {{ "%.2f"|format(analysis.runtime) }}s
+            </strong>
+            <small>Total analysis runtime</small>
+        </div>
+
+        <!-- Highest Lift -->
+        <div class="card">
+            <span>Highest Lift</span>
+            <strong>
+                {% if rules %}
+                    {{ "%.2f"|format(rules[0]["lift"]) }}
+                {% else %}
+                    —
+                {% endif %}
+            </strong>
+            <small>Strongest association found</small>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     ANALYSIS PARAMETERS
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">PARAMETERS</span>
+        <h2>Mining Configuration</h2>
+        <p>These parameters were used for this analysis.</p>
+    </div>
+
+    <div class="metric-explanation">
+
+        <div>
+            <strong>Algorithm</strong>
+            <span>Apriori</span>
+        </div>
+
+        <div>
+            <strong>Dataset</strong>
+            <span>{{ analysis.dataset_name }}</span>
+        </div>
+
+        <div>
+            <strong>Transactions</strong>
+            <span>
+                {{ "{:,}".format(analysis.metrics["transactions"]) }}
+            </span>
+        </div>
+
+        <div>
+            <strong>Minimum Support</strong>
+            <span>
+                {{ "%.2f"|format(analysis.support * 100) }}%
+            </span>
+        </div>
+
+        <div>
+            <strong>Minimum Confidence</strong>
+            <span>
+                {{ "%.2f"|format(analysis.confidence * 100) }}%
+            </span>
+        </div>
+
+        <div>
+            <strong>Execution Time</strong>
+            <span>
+                {{ "%.4f"|format(analysis.runtime) }} seconds
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     FREQUENT ITEMSETS
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <span class="eyebrow dark">STEP 1 · FREQUENT ITEMSETS</span>
+
+        <h2>Frequent Product Combinations</h2>
+
+        <p>
+            These combinations of products appear together
+            in at least
+            {{ "%.2f"|format(analysis.support * 100) }}%
+            of all transactions.
+        </p>
+
+    </div>
+
+
+    {% if itemsets %}
+
+    <div class="table-card">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product Combination</th>
+                    <th>Size</th>
+                    <th>Support</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for itemset in itemsets[:100] %}
+                <tr>
+
+                    <td>{{ loop.index }}</td>
+
+                    <td>
+                        <div class="product-list">
+                            {% for item in itemset["items"] %}
+                                <span class="product-tag">{{ item }}</span>
+                                {% if not loop.last %}
+                                    <span class="product-arrow">+</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+
+                    <td>{{ itemset["size"] }}</td>
+
+                    <td>
+                        <strong>
+                            {{ "%.2f"|format(itemset["support"] * 100) }}%
+                        </strong>
+                    </td>
+
+                </tr>
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        {% if itemsets|length > 100 %}
+        <div class="table-note">
+            Showing top 100 of
+            {{ "{:,}".format(itemsets|length) }}
+            frequent itemsets, ranked by support.
+        </div>
+        {% endif %}
+
+    </div>
+
+
+    {% else %}
+
+    <div class="empty-state">
+
+        <div class="empty-icon">📭</div>
+
+        <h2>No frequent itemsets found</h2>
+
+        <p>
+            No product combinations satisfied the selected
+            minimum support threshold of
+            {{ "%.2f"|format(analysis.support * 100) }}%.
+        </p>
+
+        <ul class="empty-suggestions">
+            <li>Try lowering minimum support</li>
+            <li>Try lowering minimum confidence</li>
+        </ul>
+
+        <a href="/" class="button primary">
+            ← Back to Configuration
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</section>
+
+
+<!-- =========================================================
+     ASSOCIATION RULES
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <span class="eyebrow dark">STEP 2 · ASSOCIATION RULES</span>
+
+        <h2>Product Association Rules</h2>
+
+        <p>
+            These rules describe directional relationships
+            between products that frequently co-occur.
+            Sorted by lift (strongest first).
+        </p>
+
+    </div>
+
+
+    {% if rules %}
+
+    <!-- Client-side filter bar -->
+    <div class="filter-bar" id="filterBar">
+
+        <div class="filter-group">
+            <label for="filterConfidence">Min. Confidence</label>
+            <input
+                type="number"
+                id="filterConfidence"
+                min="0"
+                max="100"
+                step="1"
+                value="0"
+                placeholder="0"
+            >
+            <span class="filter-unit">%</span>
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <div class="filter-group">
+            <label for="filterLift">Min. Lift</label>
+            <input
+                type="number"
+                id="filterLift"
+                min="0"
+                step="0.1"
+                value="0"
+                placeholder="0.0"
+            >
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <span class="filter-count" id="rulesCount">
+            {{ rules|length }} rules
+        </span>
+
+    </div>
+
+
+    <!-- Rules table -->
+    <div class="table-card">
+
+        <table id="rulesTable">
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>If customer buys</th>
+                    <th>They may also buy</th>
+                    <th>Support</th>
+                    <th>Confidence</th>
+                    <th>Lift</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for rule in rules[:200] %}
+                <tr
+                    class="rule-row"
+                    data-confidence="{{ (rule['confidence'] * 100) | round(4) }}"
+                    data-lift="{{ rule['lift'] | round(4) }}"
+                >
+
+                    <td>{{ loop.index }}</td>
+
+                    <!-- Antecedent -->
+                    <td>
+                        <div class="product-list">
+                            {% for item in rule["antecedent"] %}
+                                <span class="product-tag">{{ item }}</span>
+                                {% if not loop.last %}
+                                    <span class="product-arrow">+</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+
+                    <!-- Consequent -->
+                    <td>
+                        <div class="product-list">
+                            {% for item in rule["consequent"] %}
+                                <span class="product-tag">{{ item }}</span>
+                                {% if not loop.last %}
+                                    <span class="product-arrow">+</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+
+                    <!-- Support -->
+                    <td>
+                        {{ "%.2f"|format(rule["support"] * 100) }}%
+                    </td>
+
+                    <!-- Confidence -->
+                    <td>
+                        <strong>
+                            {{ "%.2f"|format(rule["confidence"] * 100) }}%
+                        </strong>
+                    </td>
+
+                    <!-- Lift with color badge -->
+                    <td>
+                        {% if rule["lift"] > 1 %}
+                            <span class="metric-positive">
+                                ▲ {{ "%.2f"|format(rule["lift"]) }}
+                            </span>
+                        {% elif rule["lift"] == 1 %}
+                            <span class="metric-neutral">
+                                = {{ "%.2f"|format(rule["lift"]) }}
+                            </span>
+                        {% else %}
+                            <span class="metric-negative">
+                                ▼ {{ "%.2f"|format(rule["lift"]) }}
+                            </span>
+                        {% endif %}
+                    </td>
+
+                </tr>
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        <!-- Table note -->
+        <div id="noRulesRow" style="display:none;" class="table-note">
+            No rules match the current filter settings.
+            Try lowering the thresholds.
+        </div>
+
+        {% if rules|length > 200 %}
+        <div class="table-note">
+            Showing top 200 of
+            {{ "{:,}".format(rules|length) }}
+            rules, ranked by lift.
+        </div>
+        {% endif %}
+
+    </div>
+
+
+    {% else %}
+
+    <div class="empty-state">
+
+        <div class="empty-icon">📭</div>
+
+        <h2>No association rules found</h2>
+
+        <p>
+            No rules satisfied the selected confidence and
+            lift thresholds. The frequent itemsets were found
+            but no rules could be generated.
+        </p>
+
+        <ul class="empty-suggestions">
+            <li>Try lowering minimum confidence</li>
+            <li>Try lowering minimum support</li>
+        </ul>
+
+        <a href="/" class="button primary">
+            ← Back to Configuration
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</section>
+
+
+<!-- =========================================================
+     LIFT INTERPRETATION
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">INTERPRETING LIFT</span>
+        <h2>How to read the Lift metric</h2>
+        <p>
+            Lift measures how much stronger the association is
+            compared to random co-occurrence.
+        </p>
+    </div>
+
+    <div class="metric-explanation">
+
+        <div>
+            <strong>▲ Lift &gt; 1 — Positive association</strong>
+            <span>
+                The products appear together more often than
+                expected by chance. A higher lift means a
+                stronger, more useful rule.
+            </span>
+            <span class="formula">Lift = Confidence / P(Consequent)</span>
+        </div>
+
+        <div>
+            <strong>= Lift = 1 — Independent</strong>
+            <span>
+                The items occur together purely by chance.
+                The rule has no predictive value.
+            </span>
+        </div>
+
+        <div>
+            <strong>▼ Lift &lt; 1 — Negative association</strong>
+            <span>
+                The items appear together less often than expected.
+                Buying one product makes the other less likely.
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     METRIC REFERENCE
+     ========================================================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <span class="eyebrow dark">METRIC REFERENCE</span>
+        <h2>Support · Confidence · Lift</h2>
+    </div>
+
+    <div class="metric-explanation">
+
+        <div>
+            <strong>Support</strong>
+            <span>
+                The proportion of all transactions that contain
+                both the antecedent and consequent.
+            </span>
+            <span class="formula">
+                Support(A→B) = freq(A∪B) / |T|
+            </span>
+        </div>
+
+        <div>
+            <strong>Confidence</strong>
+            <span>
+                Among transactions containing the antecedent,
+                the fraction that also contain the consequent.
+            </span>
+            <span class="formula">
+                Confidence(A→B) = Support(A∪B) / Support(A)
+            </span>
+        </div>
+
+        <div>
+            <strong>Lift</strong>
+            <span>
+                How much more likely the consequent is given
+                the antecedent, relative to its overall frequency.
+            </span>
+            <span class="formula">
+                Lift(A→B) = Confidence(A→B) / Support(B)
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     FINAL ACTIONS
+     ========================================================= -->
+
+<section class="section final-actions">
+
+    <div class="results-actions">
+
+        <a href="/" class="button primary">
+            🚀 Run Another Analysis
+        </a>
+
+        <a href="/learn" class="button secondary">
+            How Apriori Works
+        </a>
+
+        <a href="/benchmarks" class="button secondary">
+            View Benchmarks
+        </a>
+
+        <a
+            href="{{ url_for('download_csv') }}"
+            class="button secondary"
+        >
+            ⬇ Download Rules CSV
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     CLIENT-SIDE FILTER JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const filterConfidence =
+        document.getElementById("filterConfidence");
+
+    const filterLift =
+        document.getElementById("filterLift");
+
+    const rulesCount =
+        document.getElementById("rulesCount");
+
+    const ruleRows =
+        document.querySelectorAll(".rule-row");
+
+    const noRulesRow =
+        document.getElementById("noRulesRow");
+
+
+    function filterRules() {
+
+        const minConf =
+            parseFloat(filterConfidence.value) || 0;
+
+        const minLift =
+            parseFloat(filterLift.value) || 0;
+
+        let visible = 0;
+
+        ruleRows.forEach(function (row) {
+
+            const conf =
+                parseFloat(row.dataset.confidence);
+
+            const lift =
+                parseFloat(row.dataset.lift);
+
+            const show =
+                conf >= minConf && lift >= minLift;
+
+            row.style.display = show ? "" : "none";
+
+            if (show) visible++;
+
+        });
+
+
+        if (rulesCount) {
+            rulesCount.textContent = visible + " rules";
+        }
+
+        if (noRulesRow) {
+            noRulesRow.style.display =
+                visible === 0 ? "block" : "none";
+        }
+
+    }
+
+
+    if (filterConfidence) {
+        filterConfidence.addEventListener("input", filterRules);
+    }
+
+    if (filterLift) {
+        filterLift.addEventListener("input", filterRules);
+    }
+
+    /* Initial count */
+    if (rulesCount) {
+        rulesCount.textContent = ruleRows.length + " rules";
+    }
+
+});
+
+</script>
+
+
+{% endblock %}

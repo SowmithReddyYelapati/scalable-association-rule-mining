@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ARM Lab — Scalable Association Rule Mining. Discover meaningful product relationships using Apriori, FP-Growth, and Eclat algorithms."
+    >
+
+    <title>
+        {% block title %}ARM Lab{% endblock %}
+    </title>
+
+    <!-- Google Fonts: Inter -->
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    {% block head %}{% endblock %}
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================================
+     NAVBAR
+     ========================================================= -->
+
+<header class="navbar" id="navbar">
+
+    <!-- Brand -->
+    <a href="/" class="brand">
+
+        <span class="brand-icon">🧠</span>
+
+        <span>
+            <strong>ARM Lab</strong>
+            <small>Association Rule Mining</small>
+        </span>
+
+    </a>
+
+
+    <!-- Nav links -->
+    <nav class="nav-links" id="mainNavigation">
+
+        <a
+            href="/"
+            {% if request.endpoint == 'dashboard' %}class="active"{% endif %}
+        >
+            Analyze
+        </a>
+
+        <a
+            href="/learn"
+            {% if request.endpoint == 'learn' %}class="active"{% endif %}
+        >
+            How It Works
+        </a>
+
+        <a
+            href="/benchmarks"
+            {% if request.endpoint == 'benchmarks' %}class="active"{% endif %}
+        >
+            Benchmarks
+        </a>
+
+    </nav>
+
+
+    <!-- Hamburger (mobile) -->
+    <button
+        class="hamburger"
+        id="menuButton"
+        aria-label="Toggle navigation"
+        aria-expanded="false"
+    >
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+</header>
+
+
+<!-- =========================================================
+     MAIN CONTENT
+     ========================================================= -->
+
+<main class="container">
+
+    {% block content %}
+    {% endblock %}
+
+</main>
+
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
+
+<footer>
+
+    <strong>Scalable Association Rule Mining</strong>
+
+    <span>Apriori &middot; FP-Growth (coming) &middot; Eclat (coming)</span>
+
+</footer>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+
+<script
+    src="{{ url_for('static', filename='js/app.js') }}"
+></script>
+
+
+</body>
+
+</html>
