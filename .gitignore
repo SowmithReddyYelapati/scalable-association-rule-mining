@@ -217,7 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 # Real-world dataset
-data/
+/data/
 
 # Python cache
 __pycache__/
