@@ -34,8 +34,8 @@ if str(BASE_DIR) not in sys.path:
 DATA_DIR = BASE_DIR / "data"
 
 def _get_upload_dir() -> Path:
-    local_upload = DATA_DIR / "uploads"
     try:
+        local_upload = DATA_DIR / "uploads"
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         local_upload.mkdir(parents=True, exist_ok=True)
         # Test writability
@@ -43,9 +43,12 @@ def _get_upload_dir() -> Path:
         test_file.touch()
         test_file.unlink()
         return local_upload
-    except OSError:
+    except Exception:
         temp_upload = Path(tempfile.gettempdir()) / "scalable_arm_uploads"
-        temp_upload.mkdir(parents=True, exist_ok=True)
+        try:
+            temp_upload.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
         return temp_upload
 
 UPLOAD_DIR = _get_upload_dir()
@@ -66,10 +69,22 @@ from src.data.ingestion import process_dataset
 # FLASK APPLICATION
 # ============================================================
 
+template_dir = WEBAPP_DIR / "templates"
+if not template_dir.exists():
+    alt_template = Path.cwd() / "webapp" / "templates"
+    if alt_template.exists():
+        template_dir = alt_template
+
+static_dir = WEBAPP_DIR / "static"
+if not static_dir.exists():
+    alt_static = Path.cwd() / "webapp" / "static"
+    if alt_static.exists():
+        static_dir = alt_static
+
 app = Flask(
     __name__,
-    template_folder=str(WEBAPP_DIR / "templates"),
-    static_folder=str(WEBAPP_DIR / "static"),
+    template_folder=str(template_dir),
+    static_folder=str(static_dir),
 )
 
 app.secret_key = "scalable-association-rule-mining"
