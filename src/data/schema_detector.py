@@ -96,15 +96,17 @@ def detect_schema(df: pd.DataFrame) -> SchemaDetectionResult:
     date_col = None
 
     # Helper matcher
-    def find_best_match(candidates: list[str]) -> str | None:
+    def find_best_match(candidates: list[str], exclude: set[str] | None = None) -> str | None:
+        excluded = exclude or set()
+        # 1. Exact match
         for candidate in candidates:
             for raw_col, norm_col in norm_map.items():
-                if norm_col == candidate:
+                if raw_col not in excluded and norm_col == candidate:
                     return raw_col
-        # Partial match
+        # 2. Substring match (candidate keyword contained inside the column name)
         for candidate in candidates:
             for raw_col, norm_col in norm_map.items():
-                if candidate in norm_col or norm_col in candidate:
+                if raw_col not in excluded and candidate in norm_col:
                     return raw_col
         return None
 
@@ -117,6 +119,8 @@ def detect_schema(df: pd.DataFrame) -> SchemaDetectionResult:
     code_col = None
 
     for raw_col, norm_col in norm_map.items():
+        if raw_col == transaction_col:
+            continue
         if norm_col in ["description", "itemdescription", "productdescription", "productname", "itemname"]:
             desc_col = raw_col
         elif norm_col in ["stockcode", "stock_code", "sku", "skucode", "productid", "itemid"]:
@@ -127,20 +131,27 @@ def detect_schema(df: pd.DataFrame) -> SchemaDetectionResult:
         if code_col and code_col != desc_col:
             product_code_col = code_col
     else:
-        product_col = find_best_match(PRODUCT_CANDIDATES)
+        product_col = find_best_match(
+            PRODUCT_CANDIDATES,
+            exclude={c for c in [transaction_col] if c}
+        )
 
-    # 3. Detect Quantity Column
-    quantity_col = find_best_match(QUANTITY_CANDIDATES)
+    # 3. Detect Quantity Column (exclude transaction and product columns)
+    matched_so_far = {c for c in [transaction_col, product_col, product_code_col] if c}
+    quantity_col = find_best_match(QUANTITY_CANDIDATES, exclude=matched_so_far)
 
     # 4. Detect Member and Date columns
-    member_col = find_best_match(MEMBER_CANDIDATES)
-    date_col = find_best_match(DATE_CANDIDATES)
+    member_col = find_best_match(MEMBER_CANDIDATES, exclude={c for c in [product_col, product_code_col] if c})
+    date_col = find_best_match(DATE_CANDIDATES, exclude=matched_so_far)
 
     # Validate Transaction Column vs Member Column
     # If transaction_col was matched to customer/member, check if a better transaction ID exists
     if transaction_col and member_col and transaction_col == member_col:
         # Check if there is an actual order/invoice column
-        invoice_cand = find_best_match(["invoiceno", "invoice", "orderid", "transactionid"])
+        invoice_cand = find_best_match(
+            ["invoiceno", "invoice", "orderid", "transactionid"],
+            exclude={member_col}
+        )
         if invoice_cand and invoice_cand != member_col:
             transaction_col = invoice_cand
 
