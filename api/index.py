@@ -30,7 +30,7 @@ class VercelPathFixMiddleware:
     """
     WSGI middleware that restores the original request path from
     Vercel routing headers (e.g. HTTP_X_MATCHED_PATH) so Flask
-    can route sub-paths like /upload, /health, /learn, /analyze correctly.
+    can route sub-paths like /upload, /health, /learn, /analyze, and / correctly.
     """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
@@ -42,10 +42,15 @@ class VercelPathFixMiddleware:
             or environ.get("HTTP_X_VERCEL_MATCHED_PATH")
             or environ.get("HTTP_X_FORWARDED_PATH")
         )
-        if matched_path and matched_path not in ("/api/index", "/api/index.py"):
+        if matched_path:
             path = matched_path.split("?")[0]
-            if path:
+            if path in ("/api/index", "/api/index.py", ""):
+                environ["PATH_INFO"] = "/"
+            else:
                 environ["PATH_INFO"] = path
+        else:
+            if environ.get("PATH_INFO") in ("/api/index", "/api/index.py", "", None):
+                environ["PATH_INFO"] = "/"
 
         return self.wsgi_app(environ, start_response)
 
