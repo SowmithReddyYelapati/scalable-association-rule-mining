@@ -21,5 +21,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from webapp.app import app
 
-# Vercel discovers the WSGI application exported as `app`
-__all__ = ["app"]
+# Expose both app and handler for maximum compatibility with Vercel WSGI runner
+handler = app
+__all__ = ["app", "handler"]
