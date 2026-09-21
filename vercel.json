@@ -7,14 +7,14 @@
   "env": {
     "PYTHONPATH": "."
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/static/(.*)",
-      "destination": "/static/$1"
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/api/index.py"
+      "src": "/(.*)",
+      "dest": "/api/index"
     }
   ]
 }
