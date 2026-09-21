@@ -13,6 +13,7 @@ from flask import (
     url_for,
     flash,
     Response,
+    send_from_directory,
 )
 
 
@@ -757,9 +758,17 @@ def format_results(
 
 
 # ============================================================
-# HOME / DASHBOARD
+# HOME / DASHBOARD & STATIC
 # ============================================================
 
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    return send_from_directory(str(static_dir), filename)
+
+
+@app.route("/api/index")
+@app.route("/api")
+@app.route("/index")
 @app.route("/")
 def dashboard():
 

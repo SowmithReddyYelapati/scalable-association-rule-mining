@@ -3,9 +3,6 @@
     "api/index.py": {
       "includeFiles": "{src/**,webapp/**}"
     },
-    "app.py": {
-      "includeFiles": "{src/**,webapp/**}"
-    },
     "**/*.py": {
       "includeFiles": "{src/**,webapp/**}"
     }
@@ -16,7 +13,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     }
   ]
 }
