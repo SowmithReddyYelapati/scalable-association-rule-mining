@@ -216,8 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-# Real-world dataset
-/data/
+# Real-world dataset - ignore large raw files and uploads, keep sample transactions
+/data/uploads/
+/data/online+retail/
+/data/*.xlsx
+/data/*.xls
+/data/*.zip
 
 # Python cache
 __pycache__/

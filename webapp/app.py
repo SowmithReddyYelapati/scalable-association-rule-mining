@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import time
 import json
+import uuid
 
 import pandas as pd
 from flask import (
@@ -14,6 +15,7 @@ from flask import (
     flash,
     Response,
     send_from_directory,
+    session,
 )
 
 
@@ -92,34 +94,129 @@ app = Flask(
 app.secret_key = "scalable-association-rule-mining"
 
 
+
 # ============================================================
 # APPLICATION STATE
 # ============================================================
 
-analysis_state = {
+_STATE_DIR = Path(tempfile.gettempdir()) / "arm_states"
+try:
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
+
+_EMPTY_STATE = {
     "dataset_name": None,
     "file_path": None,
-
     "needs_mapping": False,
     "mapping_columns": [],
     "mapping_suggestion": {},
-
     "transactions": [],
     "product_names": {},
-
     "frequent_itemsets": {},
     "rules": [],
-
     "support": None,
     "confidence": None,
     "lift": None,
-
     "runtime": None,
-
     "algorithm": "Apriori",
-
     "metrics": {},
 }
+
+# In-memory fallback (works on localhost, may be empty on serverless cold-start)
+analysis_state = dict(_EMPTY_STATE)
+
+
+def _state_file(state_id: str) -> Path:
+    return _STATE_DIR / f"arm_{state_id}.json"
+
+
+def _serialize(state: dict) -> dict:
+    """Convert analysis_state to a JSON-serialisable dict."""
+    s = {}
+    for key, val in state.items():
+        if key == "transactions":
+            # list[frozenset[str]] -> list[list[str]]
+            s[key] = [sorted(list(t)) for t in val]
+        elif key == "frequent_itemsets":
+            # dict[frozenset[str], float] -> list[[sorted items, support]]
+            s[key] = [
+                [sorted(list(itemset)), float(sup)]
+                for itemset, sup in val.items()
+            ]
+        elif key == "rules":
+            # list[AssociationRule | dict] -> list[dict]
+            rules_out = []
+            for r in val:
+                if isinstance(r, dict):
+                    rules_out.append({
+                        "antecedent": sorted(list(r.get("antecedent", []))),
+                        "consequent": sorted(list(r.get("consequent", []))),
+                        "support": float(r.get("support", 0)),
+                        "confidence": float(r.get("confidence", 0)),
+                        "lift": float(r.get("lift", 0)),
+                    })
+                else:
+                    rules_out.append({
+                        "antecedent": sorted(list(r.antecedent)),
+                        "consequent": sorted(list(r.consequent)),
+                        "support": float(r.support),
+                        "confidence": float(r.confidence),
+                        "lift": float(r.lift),
+                    })
+            s[key] = rules_out
+        else:
+            s[key] = val
+    return s
+
+
+def _deserialize(s: dict) -> dict:
+    """Convert JSON-loaded dict back to analysis_state format."""
+    state = dict(_EMPTY_STATE)
+    for key, val in s.items():
+        if key == "transactions":
+            state[key] = [frozenset(t) for t in val]
+        elif key == "frequent_itemsets":
+            state[key] = {
+                frozenset(items): float(sup)
+                for items, sup in val
+            }
+        elif key == "rules":
+            # Keep as dicts; format_results() already handles dict rules
+            state[key] = val
+        else:
+            state[key] = val
+    return state
+
+
+def save_state() -> None:
+    """Persist analysis_state to /tmp and store the ID in the Flask session."""
+    try:
+        state_id = session.get("arm_state_id")
+        if not state_id:
+            state_id = str(uuid.uuid4())
+            session["arm_state_id"] = state_id
+        sf = _state_file(state_id)
+        sf.write_text(json.dumps(_serialize(analysis_state)), encoding="utf-8")
+    except Exception as exc:
+        print("save_state error:", exc)
+
+
+def load_state() -> None:
+    """Load persisted state from /tmp into the global analysis_state."""
+    global analysis_state
+    try:
+        state_id = session.get("arm_state_id")
+        if not state_id:
+            return
+        sf = _state_file(state_id)
+        if sf.exists():
+            raw = json.loads(sf.read_text(encoding="utf-8"))
+            loaded = _deserialize(raw)
+            analysis_state.update(loaded)
+    except Exception as exc:
+        print("load_state error:", exc)
+
 
 
 # ============================================================
@@ -781,6 +878,8 @@ def serve_static(filename):
 @app.route("/")
 def dashboard():
 
+    load_state()
+
     preview = []
 
     if analysis_state.get("transactions"):
@@ -818,9 +917,14 @@ def dashboard():
 
 @app.route(
     "/upload",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def upload():
+
+    if request.method == "GET":
+        return redirect(url_for("dashboard"))
+
+    load_state()
 
     file = request.files.get(
         "dataset"
@@ -865,6 +969,8 @@ def upload():
     )
 
     try:
+
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
         file.save(
             destination
@@ -916,6 +1022,8 @@ def upload():
                         "Apriori",
                 }
             )
+
+            save_state()
 
             flash(
                 result["message"],
@@ -969,6 +1077,8 @@ def upload():
             }
         )
 
+        save_state()
+
         flash(
             f"{filename} uploaded and processed successfully.",
             "success",
@@ -999,9 +1109,14 @@ def upload():
 
 @app.route(
     "/map-columns",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def map_columns():
+
+    if request.method == "GET":
+        return redirect(url_for("dashboard"))
+
+    load_state()
 
     file_path = analysis_state.get(
         "file_path"
@@ -1105,6 +1220,8 @@ def map_columns():
             }
         )
 
+        save_state()
+
         flash(
             f"Columns mapped successfully for {filename}.",
             "success",
@@ -1133,9 +1250,14 @@ def map_columns():
 
 @app.route(
     "/use-sample",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def use_sample():
+
+    if request.method == "GET":
+        return redirect(url_for("dashboard"))
+
+    load_state()
 
     sample_excel = (
         DATA_DIR / "Online Retail.xlsx"
@@ -1338,6 +1460,8 @@ def use_sample():
             }
         )
 
+        save_state()
+
         flash(
             "Online Retail sample dataset loaded successfully.",
             "success",
@@ -1367,9 +1491,14 @@ def use_sample():
 
 @app.route(
     "/analyze",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def analyze():
+
+    if request.method == "GET":
+        return redirect(url_for("results") if analysis_state.get("rules") else url_for("dashboard"))
+
+    load_state()
 
     if not analysis_state[
         "transactions"
@@ -1648,6 +1777,8 @@ def analyze():
             }
         )
 
+        save_state()
+
         flash(
             f"{algorithm} analysis completed successfully.",
             "success",
@@ -1693,6 +1824,8 @@ def analyze():
 @app.route("/results")
 def results():
 
+    load_state()
+
     if (
         not analysis_state[
             "frequent_itemsets"
@@ -1732,6 +1865,8 @@ def results():
 
 @app.route("/download-csv")
 def download_csv():
+
+    load_state()
 
     if not analysis_state.get(
         "rules"
@@ -1807,9 +1942,11 @@ def download_csv():
 
 @app.route(
     "/reset",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def reset():
+
+    load_state()
 
     analysis_state.update(
         {
@@ -1837,6 +1974,8 @@ def reset():
             "metrics": {},
         }
     )
+
+    save_state()
 
     flash(
         "Analysis session cleared.",

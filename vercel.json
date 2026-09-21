@@ -1,20 +1,20 @@
 {
   "functions": {
     "api/index.py": {
-      "includeFiles": "{src/**,webapp/**,static/**}"
+      "includeFiles": "{src/**,webapp/**,static/**,data/**}"
     }
   },
   "env": {
     "PYTHONPATH": "."
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/api/index"
+      "source": "/(.*)",
+      "destination": "/api/index.py"
     }
   ]
 }
