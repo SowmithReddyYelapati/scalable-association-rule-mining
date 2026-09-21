@@ -1,8 +1,17 @@
 {
   "functions": {
+    "api/index.py": {
+      "includeFiles": "{src/**,webapp/**}"
+    },
+    "app.py": {
+      "includeFiles": "{src/**,webapp/**}"
+    },
     "**/*.py": {
-      "includeFiles": "webapp/**"
+      "includeFiles": "{src/**,webapp/**}"
     }
+  },
+  "env": {
+    "PYTHONPATH": "."
   },
   "rewrites": [
     {
