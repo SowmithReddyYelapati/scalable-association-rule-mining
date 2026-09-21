@@ -486,11 +486,77 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =====================================================
+       DATASET STATE PERSISTENCE (SERVERLESS RECOVERY)
+       ===================================================== */
+
+    const payloadHolder = document.getElementById("datasetPayloadHolder");
+    if (payloadHolder && payloadHolder.dataset && payloadHolder.dataset.payload) {
+        sessionStorage.setItem("arm_dataset_payload", payloadHolder.dataset.payload);
+    }
+
+    const analysisForm = document.getElementById("analysisForm");
+    if (analysisForm) {
+        analysisForm.addEventListener("submit", function () {
+            const payloadInput = document.getElementById("datasetPayload");
+            if (payloadInput && !payloadInput.value) {
+                const saved = sessionStorage.getItem("arm_dataset_payload");
+                if (saved) {
+                    payloadInput.value = saved;
+                }
+            }
+        });
+    }
+
+    // Clear saved payload on reset
+    const resetForms = document.querySelectorAll('form[action*="reset"]');
+    resetForms.forEach(function (f) {
+        f.addEventListener("submit", function () {
+            sessionStorage.removeItem("arm_dataset_payload");
+        });
+    });
+
+    /* =====================================================
+       CLIENT-SIDE CSV DOWNLOAD FALLBACK
+       ===================================================== */
+
+    const downloadCsvBtn = document.getElementById("downloadCsvBtn");
+    if (downloadCsvBtn) {
+        downloadCsvBtn.addEventListener("click", function (e) {
+            const rows = document.querySelectorAll("#rulesTable tbody tr");
+            if (rows.length > 0) {
+                let csvLines = ["Antecedent,Consequent,Support,Confidence,Lift"];
+                rows.forEach(function (row) {
+                    const cells = row.querySelectorAll("td");
+                    if (cells.length >= 5) {
+                        const ant = cells[0].textContent.trim().replace(/"/g, '""');
+                        const con = cells[1].textContent.trim().replace(/"/g, '""');
+                        const sup = cells[2].textContent.trim().replace("%", "") / 100;
+                        const conf = cells[3].textContent.trim().replace("%", "") / 100;
+                        const lift = cells[4].textContent.trim();
+                        csvLines.push(`"${ant}","${con}",${sup},${conf},${lift}`);
+                    }
+                });
+                const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "association_rules.csv";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                e.preventDefault();
+            }
+        });
+    }
+
+
+    /* =====================================================
        DEBUG
        ===================================================== */
 
     console.log("ARM Lab frontend initialized.");
-    console.log("Algorithm: Apriori | FP-Growth (soon) | Eclat (soon)");
+    console.log("Algorithm: Apriori | FP-Growth");
 
 
 });

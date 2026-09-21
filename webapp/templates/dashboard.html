@@ -455,6 +455,15 @@
             value="{{ 'fp-growth' if analysis.algorithm == 'FP-Growth' else 'apriori' }}"
         >
 
+        <!-- Hidden input for dataset payload for serverless state recovery -->
+        <input
+            type="hidden"
+            name="dataset_payload"
+            id="datasetPayload"
+            value="{{ dataset_payload or '' }}"
+        >
+        <div id="datasetPayloadHolder" data-payload="{{ dataset_payload or '' }}" style="display:none;"></div>
+
         <!-- =====================================================
              ALGORITHM SELECTION: SIDE-BY-SIDE CARDS
              ===================================================== -->

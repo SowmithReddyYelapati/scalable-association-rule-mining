@@ -189,6 +189,47 @@ def _deserialize(s: dict) -> dict:
     return state
 
 
+import zlib
+import base64
+
+def _encode_dataset_payload(state: dict) -> str:
+    """Compress transactions, product_names, dataset_name, metrics to base64 string."""
+    try:
+        if not state.get("transactions"):
+            return ""
+        data = {
+            "dataset_name": state.get("dataset_name"),
+            "transactions": [sorted(list(t)) for t in state.get("transactions", [])],
+            "product_names": state.get("product_names", {}),
+            "metrics": state.get("metrics", {}),
+        }
+        compressed = zlib.compress(json.dumps(data).encode("utf-8"), level=6)
+        return base64.b64encode(compressed).decode("ascii")
+    except Exception as exc:
+        print("encode_payload error:", exc)
+        return ""
+
+
+def _decode_and_apply_dataset_payload(payload_str: str) -> None:
+    """Decode and apply compressed dataset payload to analysis_state."""
+    global analysis_state
+    try:
+        if not payload_str or not payload_str.strip():
+            return
+        raw = zlib.decompress(base64.b64decode(payload_str.strip().encode("ascii"))).decode("utf-8")
+        data = json.loads(raw)
+        if data.get("transactions"):
+            analysis_state["transactions"] = [frozenset(t) for t in data["transactions"]]
+        if data.get("product_names") is not None:
+            analysis_state["product_names"] = data["product_names"]
+        if data.get("dataset_name") is not None:
+            analysis_state["dataset_name"] = data["dataset_name"]
+        if data.get("metrics") is not None:
+            analysis_state["metrics"] = data["metrics"]
+    except Exception as exc:
+        print("decode_payload error:", exc)
+
+
 def save_state() -> None:
     """Persist analysis_state to /tmp and store the ID in the Flask session."""
     try:
@@ -198,22 +239,30 @@ def save_state() -> None:
             session["arm_state_id"] = state_id
         sf = _state_file(state_id)
         sf.write_text(json.dumps(_serialize(analysis_state)), encoding="utf-8")
+        # Also store small dataset payload in session for instant cross-container recovery
+        payload = _encode_dataset_payload(analysis_state)
+        if payload and len(payload) < 3000:
+            session["arm_payload"] = payload
     except Exception as exc:
         print("save_state error:", exc)
 
 
 def load_state() -> None:
-    """Load persisted state from /tmp into the global analysis_state."""
+    """Load persisted state from /tmp or session payload into global analysis_state."""
     global analysis_state
     try:
         state_id = session.get("arm_state_id")
-        if not state_id:
-            return
-        sf = _state_file(state_id)
-        if sf.exists():
-            raw = json.loads(sf.read_text(encoding="utf-8"))
-            loaded = _deserialize(raw)
-            analysis_state.update(loaded)
+        if state_id:
+            sf = _state_file(state_id)
+            if sf.exists():
+                raw = json.loads(sf.read_text(encoding="utf-8"))
+                loaded = _deserialize(raw)
+                analysis_state.update(loaded)
+                return
+        # Fallback to session payload if /tmp was wiped by cold start
+        session_payload = session.get("arm_payload")
+        if session_payload:
+            _decode_and_apply_dataset_payload(session_payload)
     except Exception as exc:
         print("load_state error:", exc)
 
@@ -908,6 +957,7 @@ def dashboard():
         "dashboard.html",
         analysis=analysis_state,
         preview=preview,
+        dataset_payload=_encode_dataset_payload(analysis_state),
     )
 
 
@@ -1496,9 +1546,15 @@ def use_sample():
 def analyze():
 
     if request.method == "GET":
+        load_state()
         return redirect(url_for("results") if analysis_state.get("rules") else url_for("dashboard"))
 
     load_state()
+
+    # Fallback to submitted dataset_payload if transactions were lost across serverless containers
+    payload = request.form.get("dataset_payload")
+    if payload:
+        _decode_and_apply_dataset_payload(payload)
 
     if not analysis_state[
         "transactions"
