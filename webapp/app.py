@@ -1,6 +1,8 @@
+import tempfile
 from pathlib import Path
 import sys
 import time
+import json
 
 import pandas as pd
 from flask import (
@@ -18,10 +20,9 @@ from flask import (
 # PROJECT PATH
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+WEBAPP_DIR = Path(__file__).resolve().parent
+BASE_DIR = WEBAPP_DIR.parent
 
-# Required when running:
-# python webapp\app.py
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
@@ -31,17 +32,31 @@ if str(BASE_DIR) not in sys.path:
 # ============================================================
 
 DATA_DIR = BASE_DIR / "data"
-UPLOAD_DIR = DATA_DIR / "uploads"
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+def _get_upload_dir() -> Path:
+    local_upload = DATA_DIR / "uploads"
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        local_upload.mkdir(parents=True, exist_ok=True)
+        # Test writability
+        test_file = local_upload / ".write_test"
+        test_file.touch()
+        test_file.unlink()
+        return local_upload
+    except OSError:
+        temp_upload = Path(tempfile.gettempdir()) / "scalable_arm_uploads"
+        temp_upload.mkdir(parents=True, exist_ok=True)
+        return temp_upload
+
+UPLOAD_DIR = _get_upload_dir()
 
 
 # ============================================================
-# EXISTING MINING ENGINE
+# MINING ENGINES
 # ============================================================
 
 from src.arm.apriori import apriori
+from src.arm.fp_growth import fp_growth
 from src.arm.rules import generate_rules
 from src.arm.retail_loader import load_online_retail
 from src.data.ingestion import process_dataset
@@ -53,8 +68,8 @@ from src.data.ingestion import process_dataset
 
 app = Flask(
     __name__,
-    template_folder="templates",
-    static_folder="static",
+    template_folder=str(WEBAPP_DIR / "templates"),
+    static_folder=str(WEBAPP_DIR / "static"),
 )
 
 app.secret_key = "scalable-association-rule-mining"
@@ -66,22 +81,25 @@ app.secret_key = "scalable-association-rule-mining"
 
 analysis_state = {
     "dataset_name": None,
+    "file_path": None,
+
+    "needs_mapping": False,
+    "mapping_columns": [],
+    "mapping_suggestion": {},
 
     "transactions": [],
-
     "product_names": {},
 
     "frequent_itemsets": {},
-
     "rules": [],
 
     "support": None,
-
     "confidence": None,
-
     "lift": None,
 
     "runtime": None,
+
+    "algorithm": "Apriori",
 
     "metrics": {},
 }
@@ -93,14 +111,17 @@ analysis_state = {
 
 def normalize_column_name(value):
     """
-    Normalize a column name so common variations are treated equally.
+    Normalize column names so common variations
+    are treated equally.
 
     Examples:
-        TransactionID -> transactionid
-        Transaction ID -> transactionid
-        transaction_id -> transactionid
-        Invoice No -> invoiceno
+        TransactionID
+        Transaction ID
+        transaction_id
+        Invoice No
+        Invoice_No
     """
+
     return (
         str(value)
         .replace("\ufeff", "")
@@ -115,13 +136,15 @@ def normalize_column_name(value):
 
 def clean_dataframe_columns(df):
     """
-    Clean CSV/Excel headers without changing the actual data.
-    Handles BOM characters and duplicate-looking headers.
+    Clean CSV/Excel headers without changing data.
     """
+
     data = df.copy()
 
     data.columns = [
-        str(column).replace("\ufeff", "").strip()
+        str(column)
+        .replace("\ufeff", "")
+        .strip()
         for column in data.columns
     ]
 
@@ -130,9 +153,10 @@ def clean_dataframe_columns(df):
 
 def find_column(columns, candidates):
     """
-    Robust dataset column detection.
+    Robust column detection.
 
-    Supports variations such as:
+    Supports common variations such as:
+
         TransactionID
         Transaction ID
         transaction_id
@@ -151,23 +175,26 @@ def find_column(columns, candidates):
         for column in columns
     }
 
-    # 1. Exact normalized matching
+    # Exact normalized matching
     for candidate in candidates:
+
         key = normalize_column_name(candidate)
 
         if key in normalized_columns:
             return normalized_columns[key]
 
-    # 2. Safe partial matching
+    # Safe partial matching
     normalized_candidates = [
         normalize_column_name(candidate)
         for candidate in candidates
     ]
 
     for column in columns:
+
         normalized_column = normalize_column_name(column)
 
         for candidate in normalized_candidates:
+
             if (
                 candidate
                 and (
@@ -192,11 +219,13 @@ def read_dataset(file_path):
     if extension == ".csv":
 
         df = pd.read_csv(file_path)
+
         return clean_dataframe_columns(df)
 
     if extension in [".xlsx", ".xls"]:
 
         df = pd.read_excel(file_path)
+
         return clean_dataframe_columns(df)
 
     raise ValueError(
@@ -219,7 +248,7 @@ def prepare_transactions(df):
             ...
         ]
 
-    Also creates a product-code -> product-name mapping.
+    Also creates product-code -> product-name mapping.
     """
 
     if df is None or df.empty:
@@ -426,9 +455,7 @@ def prepare_transactions(df):
             ]
         ].dropna()
 
-        for _, row in (
-            mapping_data.iterrows()
-        ):
+        for _, row in mapping_data.iterrows():
 
             code = str(
                 row[product_column]
@@ -461,10 +488,7 @@ def prepare_transactions(df):
         )
 
         if items:
-
-            transactions.append(
-                items
-            )
+            transactions.append(items)
 
     if not transactions:
 
@@ -487,7 +511,7 @@ def calculate_statistics(
     transactions,
 ):
     """
-    Calculate dataset statistics for UI.
+    Calculate dataset statistics.
     """
 
     products = set()
@@ -557,15 +581,7 @@ def display_product(
     product_names,
 ):
     """
-    Convert product ID to readable form.
-
-    Example:
-
-        22916
-
-    becomes:
-
-        HERB MARKER THYME (22916)
+    Convert product ID into readable form.
     """
 
     product = str(product)
@@ -613,11 +629,6 @@ def format_results(
     """
     Convert mining-engine objects into
     dictionaries suitable for Jinja.
-
-    Optional min_lift filtering is applied
-    only to generated rules.
-
-    The Apriori engine itself remains unchanged.
     """
 
     product_names = (
@@ -656,8 +667,10 @@ def format_results(
         )
 
     itemsets.sort(
-        key=lambda x: x["support"],
-        reverse=True,
+        key=lambda x: (
+            x["size"],
+            -x["support"],
+        )
     )
 
     # --------------------------------------------------------
@@ -672,11 +685,19 @@ def format_results(
         ]
     ):
 
-        rule_lift = float(
-            rule.lift
-        )
+        if isinstance(rule, dict):
+            antecedent = rule.get("antecedent", [])
+            consequent = rule.get("consequent", [])
+            support = float(rule.get("support", 0.0))
+            confidence = float(rule.get("confidence", 0.0))
+            rule_lift = float(rule.get("lift", 0.0))
+        else:
+            antecedent = rule.antecedent
+            consequent = rule.consequent
+            support = float(rule.support)
+            confidence = float(rule.confidence)
+            rule_lift = float(rule.lift)
 
-        # Apply optional lift filter
         if (
             min_lift is not None
             and rule_lift < min_lift
@@ -687,28 +708,27 @@ def format_results(
             {
                 "antecedent":
                     format_itemset(
-                        rule.antecedent,
+                        antecedent,
                         product_names,
                     ),
-
+ 
                 "consequent":
                     format_itemset(
-                        rule.consequent,
+                        consequent,
                         product_names,
                     ),
-
+ 
                 "support":
-                    float(rule.support),
-
+                    support,
+ 
                 "confidence":
-                    float(rule.confidence),
-
+                    confidence,
+ 
                 "lift":
                     rule_lift,
             }
         )
 
-    # Highest lift first
     rules.sort(
         key=lambda x: x["lift"],
         reverse=True,
@@ -731,9 +751,18 @@ def dashboard():
 
     if analysis_state.get("transactions"):
 
-        product_names = analysis_state.get("product_names", {})
+        product_names = (
+            analysis_state.get(
+                "product_names",
+                {},
+            )
+        )
 
-        for transaction in analysis_state["transactions"][:10]:
+        for transaction in (
+            analysis_state[
+                "transactions"
+            ][:10]
+        ):
 
             preview.append(
                 format_itemset(
@@ -759,66 +788,180 @@ def dashboard():
 )
 def upload():
 
-    file = request.files.get("dataset")
+    file = request.files.get(
+        "dataset"
+    )
 
     if file is None or file.filename == "":
-        flash("Please select a dataset first.", "error")
-        return redirect(url_for("dashboard"))
 
-    filename = Path(file.filename).name
-    extension = Path(filename).suffix.lower()
-
-    if extension not in {".csv", ".xlsx", ".xls"}:
-        flash("Only CSV, XLSX and XLS files are supported.", "error")
-        return redirect(url_for("dashboard"))
-
-    destination = UPLOAD_DIR / filename
-
-    try:
-        file.save(destination)
-
-        result = process_dataset(destination, filename=filename)
-
-        if result["status"] == "needs_mapping":
-            analysis_state.update({
-                "dataset_name": filename,
-                "file_path": str(destination),
-                "needs_mapping": True,
-                "mapping_columns": result["columns"],
-                "mapping_suggestion": result.get("schema_suggestion", {}),
-                "transactions": [],
-                "product_names": {},
-                "metrics": {},
-            })
-            flash(result["message"], "error")
-            return redirect(url_for("dashboard"))
-
-        analysis_state.update({
-            "dataset_name": filename,
-            "file_path": str(destination),
-            "needs_mapping": False,
-            "transactions": result["transactions"],
-            "product_names": result["product_names"],
-            "frequent_itemsets": {},
-            "rules": [],
-            "support": None,
-            "confidence": None,
-            "lift": None,
-            "runtime": None,
-            "metrics": result["metrics"],
-        })
-
-        flash(f"{filename} uploaded and processed successfully.", "success")
-
-    except Exception as exc:
-        print("DATASET UPLOAD ERROR:", repr(exc))
         flash(
-            "Dataset could not be processed. Please check that your CSV contains valid transaction and product information.",
+            "Please select a dataset first.",
             "error",
         )
 
-    return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
 
+    filename = Path(
+        file.filename
+    ).name
+
+    extension = Path(
+        filename
+    ).suffix.lower()
+
+    if extension not in {
+        ".csv",
+        ".xlsx",
+        ".xls",
+    }:
+
+        flash(
+            "Only CSV, XLSX and XLS files are supported.",
+            "error",
+        )
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+    destination = (
+        UPLOAD_DIR / filename
+    )
+
+    try:
+
+        file.save(
+            destination
+        )
+
+        result = process_dataset(
+            destination,
+            filename=filename,
+        )
+
+        if result["status"] == "needs_mapping":
+
+            analysis_state.update(
+                {
+                    "dataset_name":
+                        filename,
+
+                    "file_path":
+                        str(destination),
+
+                    "needs_mapping":
+                        True,
+
+                    "mapping_columns":
+                        result["columns"],
+
+                    "mapping_suggestion":
+                        result.get(
+                            "schema_suggestion",
+                            {},
+                        ),
+
+                    "transactions":
+                        [],
+
+                    "product_names":
+                        {},
+
+                    "frequent_itemsets":
+                        {},
+
+                    "rules":
+                        [],
+
+                    "metrics":
+                        {},
+
+                    "algorithm":
+                        "Apriori",
+                }
+            )
+
+            flash(
+                result["message"],
+                "error",
+            )
+
+            return redirect(
+                url_for("dashboard")
+            )
+
+        analysis_state.update(
+            {
+                "dataset_name":
+                    filename,
+
+                "file_path":
+                    str(destination),
+
+                "needs_mapping":
+                    False,
+
+                "transactions":
+                    result["transactions"],
+
+                "product_names":
+                    result["product_names"],
+
+                "frequent_itemsets":
+                    {},
+
+                "rules":
+                    [],
+
+                "support":
+                    None,
+
+                "confidence":
+                    None,
+
+                "lift":
+                    None,
+
+                "runtime":
+                    None,
+
+                "algorithm":
+                    "Apriori",
+
+                "metrics":
+                    result["metrics"],
+            }
+        )
+
+        flash(
+            f"{filename} uploaded and processed successfully.",
+            "success",
+        )
+
+    except Exception as exc:
+
+        print(
+            "DATASET UPLOAD ERROR:",
+            repr(exc),
+        )
+
+        flash(
+            "Dataset could not be processed. "
+            "Please check that your CSV contains "
+            "valid transaction and product information.",
+            "error",
+        )
+
+    return redirect(
+        url_for("dashboard")
+    )
+
+
+# ============================================================
+# MANUAL COLUMN MAPPING
+# ============================================================
 
 @app.route(
     "/map-columns",
@@ -826,57 +969,133 @@ def upload():
 )
 def map_columns():
 
-    file_path = analysis_state.get("file_path")
-    filename = analysis_state.get("dataset_name", "uploaded_dataset.csv")
+    file_path = analysis_state.get(
+        "file_path"
+    )
 
-    if not file_path or not Path(file_path).exists():
-        flash("Please upload a dataset first.", "error")
-        return redirect(url_for("dashboard"))
+    filename = analysis_state.get(
+        "dataset_name",
+        "uploaded_dataset.csv",
+    )
 
-    txn_col = request.form.get("transaction_col")
-    prod_col = request.form.get("product_col")
-    qty_col = request.form.get("quantity_col")
+    if (
+        not file_path
+        or not Path(file_path).exists()
+    ):
+
+        flash(
+            "Please upload a dataset first.",
+            "error",
+        )
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+    txn_col = request.form.get(
+        "transaction_col"
+    )
+
+    prod_col = request.form.get(
+        "product_col"
+    )
+
+    qty_col = request.form.get(
+        "quantity_col"
+    )
 
     if not txn_col or not prod_col:
-        flash("Please select both a transaction column and a product column.", "error")
-        return redirect(url_for("dashboard"))
+
+        flash(
+            "Please select both a transaction column and a product column.",
+            "error",
+        )
+
+        return redirect(
+            url_for("dashboard")
+        )
 
     manual_mapping = {
-        "transaction": txn_col,
-        "product": prod_col,
-        "quantity": qty_col or "None",
+        "transaction":
+            txn_col,
+
+        "product":
+            prod_col,
+
+        "quantity":
+            qty_col or "None",
     }
 
     try:
-        result = process_dataset(Path(file_path), filename=filename, manual_mapping=manual_mapping)
 
-        analysis_state.update({
-            "needs_mapping": False,
-            "transactions": result["transactions"],
-            "product_names": result["product_names"],
-            "frequent_itemsets": {},
-            "rules": [],
-            "support": None,
-            "confidence": None,
-            "lift": None,
-            "runtime": None,
-            "metrics": result["metrics"],
-        })
+        result = process_dataset(
+            Path(file_path),
+            filename=filename,
+            manual_mapping=manual_mapping,
+        )
 
-        flash(f"Columns mapped successfully for {filename}.", "success")
+        analysis_state.update(
+            {
+                "needs_mapping":
+                    False,
+
+                "transactions":
+                    result["transactions"],
+
+                "product_names":
+                    result["product_names"],
+
+                "frequent_itemsets":
+                    {},
+
+                "rules":
+                    [],
+
+                "support":
+                    None,
+
+                "confidence":
+                    None,
+
+                "lift":
+                    None,
+
+                "runtime":
+                    None,
+
+                "algorithm":
+                    "Apriori",
+
+                "metrics":
+                    result["metrics"],
+            }
+        )
+
+        flash(
+            f"Columns mapped successfully for {filename}.",
+            "success",
+        )
 
     except Exception as exc:
-        print("COLUMN MAPPING ERROR:", repr(exc))
-        flash("Could not process dataset with selected column mapping.", "error")
 
-    return redirect(url_for("dashboard"))
+        print(
+            "COLUMN MAPPING ERROR:",
+            repr(exc),
+        )
+
+        flash(
+            "Could not process dataset with selected column mapping.",
+            "error",
+        )
+
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # ============================================================
 # USE ONLINE RETAIL SAMPLE
 # ============================================================
-
-import json
 
 @app.route(
     "/use-sample",
@@ -884,80 +1103,204 @@ import json
 )
 def use_sample():
 
-    sample_excel = DATA_DIR / "Online Retail.xlsx"
-    sample_csv = DATA_DIR / "online_retail_transactions.csv"
-    product_json = DATA_DIR / "online_retail_product_names.json"
+    sample_excel = (
+        DATA_DIR / "Online Retail.xlsx"
+    )
 
-    if not sample_excel.exists() and not sample_csv.exists():
+    sample_csv = (
+        DATA_DIR / "online_retail_transactions.csv"
+    )
+
+    product_json = (
+        DATA_DIR / "online_retail_product_names.json"
+    )
+
+    if (
+        not sample_excel.exists()
+        and not sample_csv.exists()
+    ):
+
         flash(
-            "Sample dataset could not be loaded. Please check the dataset file configuration.",
+            "Sample dataset could not be loaded. "
+            "Please check the dataset file configuration.",
             "error",
         )
-        return redirect(url_for("dashboard"))
+
+        return redirect(
+            url_for("dashboard")
+        )
 
     try:
-        # Load transactions (uses cached CSV if present for instant loading)
-        target_path = sample_excel if sample_excel.exists() else sample_csv
-        transactions = load_online_retail(str(target_path))
+
+        target_path = (
+            sample_excel
+            if sample_excel.exists()
+            else sample_csv
+        )
+
+        transactions = load_online_retail(
+            str(target_path)
+        )
 
         product_names = {}
+
         if product_json.exists():
+
             try:
-                with open(product_json, "r", encoding="utf-8") as f:
+
+                with open(
+                    product_json,
+                    "r",
+                    encoding="utf-8",
+                ) as f:
+
                     product_names = json.load(f)
+
             except Exception:
+
                 product_names = {}
 
-        if not product_names and sample_excel.exists():
+        if (
+            not product_names
+            and sample_excel.exists()
+        ):
+
             try:
-                df = pd.read_excel(sample_excel, usecols=["StockCode", "Description"]).dropna()
+
+                df = pd.read_excel(
+                    sample_excel,
+                    usecols=[
+                        "StockCode",
+                        "Description",
+                    ],
+                ).dropna()
+
                 for _, row in df.iterrows():
-                    code = str(row["StockCode"]).strip()
-                    name = str(row["Description"]).strip()
+
+                    code = str(
+                        row["StockCode"]
+                    ).strip()
+
+                    name = str(
+                        row["Description"]
+                    ).strip()
+
                     if code and name:
-                        product_names.setdefault(code, name)
-                with open(product_json, "w", encoding="utf-8") as f:
-                    json.dump(product_names, f)
+
+                        product_names.setdefault(
+                            code,
+                            name,
+                        )
+
+                with open(
+                    product_json,
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+
+                    json.dump(
+                        product_names,
+                        f,
+                    )
+
             except Exception:
+
                 pass
 
         products = set()
-        for transaction in transactions:
-            products.update(transaction)
 
-        transaction_count = len(transactions)
+        for transaction in transactions:
+
+            products.update(
+                transaction
+            )
+
+        transaction_count = len(
+            transactions
+        )
+
         average_items = (
-            sum(len(t) for t in transactions) / transaction_count
+            sum(
+                len(t)
+                for t in transactions
+            )
+            / transaction_count
             if transaction_count
             else 0
         )
+
         largest_transaction = (
-            max(len(t) for t in transactions)
+            max(
+                len(t)
+                for t in transactions
+            )
             if transactions
             else 0
         )
 
         statistics = {
-            "rows": sum(len(t) for t in transactions),
-            "transactions": transaction_count,
-            "products": len(products),
-            "average_items": round(average_items, 2),
-            "largest_transaction": largest_transaction,
-            "columns": 2,
+            "rows":
+                sum(
+                    len(t)
+                    for t in transactions
+                ),
+
+            "transactions":
+                transaction_count,
+
+            "products":
+                len(products),
+
+            "average_items":
+                round(
+                    average_items,
+                    2,
+                ),
+
+            "largest_transaction":
+                largest_transaction,
+
+            "columns":
+                2,
         }
 
         analysis_state.update(
             {
-                "dataset_name": "Online Retail Dataset",
-                "transactions": transactions,
-                "product_names": product_names,
-                "frequent_itemsets": {},
-                "rules": [],
-                "support": None,
-                "confidence": None,
-                "lift": None,
-                "runtime": None,
-                "metrics": statistics,
+                "dataset_name":
+                    "Online Retail Dataset",
+
+                "file_path":
+                    None,
+
+                "transactions":
+                    transactions,
+
+                "product_names":
+                    product_names,
+
+                "frequent_itemsets":
+                    {},
+
+                "rules":
+                    [],
+
+                "support":
+                    None,
+
+                "confidence":
+                    None,
+
+                "lift":
+                    None,
+
+                "runtime":
+                    None,
+
+                "algorithm":
+                    "Apriori",
+
+                "metrics":
+                    statistics,
             }
         )
 
@@ -967,17 +1310,25 @@ def use_sample():
         )
 
     except Exception as exc:
-        print("SAMPLE DATASET ERROR:", repr(exc))
+
+        print(
+            "SAMPLE DATASET ERROR:",
+            repr(exc),
+        )
+
         flash(
-            "Sample dataset could not be loaded. Please check the dataset file configuration.",
+            "Sample dataset could not be loaded. "
+            "Please check the dataset file configuration.",
             "error",
         )
 
-    return redirect(url_for("dashboard"))
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # ============================================================
-# APRIORI ANALYSIS
+# ANALYSIS
 # ============================================================
 
 @app.route(
@@ -985,10 +1336,6 @@ def use_sample():
     methods=["POST"],
 )
 def analyze():
-
-    # --------------------------------------------------------
-    # Check dataset
-    # --------------------------------------------------------
 
     if not analysis_state[
         "transactions"
@@ -1006,59 +1353,77 @@ def analyze():
     try:
 
         # ----------------------------------------------------
-        # Read support
+        # Algorithm
         # ----------------------------------------------------
 
-        support_raw = request.form.get(
-            "support",
-            "0.02",
+        algorithm_raw = request.form.get(
+            "algorithm",
+            "apriori",
         )
 
-        # ----------------------------------------------------
-        # Read confidence
-        # ----------------------------------------------------
-
-        confidence_raw = request.form.get(
-            "confidence",
-            "0.60",
+        algorithm_key = (
+            str(algorithm_raw)
+            .strip()
+            .lower()
+            .replace("_", "-")
+            .replace(" ", "-")
         )
 
+        if algorithm_key in {
+            "fp-growth",
+            "fpgrowth",
+            "fp",
+        }:
+
+            algorithm = "FP-Growth"
+
+        elif algorithm_key == "eclat":
+
+            flash(
+                "Eclat is coming soon. Please select Apriori or FP-Growth.",
+                "error",
+            )
+
+            return redirect(
+                url_for("dashboard")
+            )
+
+        else:
+
+            algorithm = "Apriori"
+
         # ----------------------------------------------------
-        # Read lift
-        #
-        # Lift is NOT used by the Apriori engine.
-        # It is used after rule generation to filter results.
+        # Parameters
         # ----------------------------------------------------
+
+        support = float(
+            request.form.get(
+                "support",
+                "0.02",
+            )
+        )
+
+        confidence = float(
+            request.form.get(
+                "confidence",
+                "0.60",
+            )
+        )
 
         lift_raw = request.form.get(
             "lift",
             "",
         )
 
-        support = float(
-            support_raw
-        )
-
-        confidence = float(
-            confidence_raw
-        )
-
-        # Lift is calculated by the rules engine.
-        # If the UI sends a lift filter, apply it after rule generation.
-        # If no lift filter is supplied, do not filter rules.
         min_lift = (
             float(lift_raw)
-            if str(lift_raw).strip() != ""
+            if str(lift_raw).strip()
             else None
         )
 
         # ----------------------------------------------------
-        # Validate support
+        # Validation
         # ----------------------------------------------------
-
-        # UI range:
-        # Support    = 0.1% to 10%  -> 0.001 to 0.10
-        # Confidence = 10% to 100% -> 0.10 to 1.00
 
         if not (
             0.001
@@ -1070,10 +1435,6 @@ def analyze():
                 "Minimum support must be between 0.1% and 10%."
             )
 
-        # ----------------------------------------------------
-        # Validate confidence
-        # ----------------------------------------------------
-
         if not (
             0.10
             <= confidence
@@ -1083,10 +1444,6 @@ def analyze():
             raise ValueError(
                 "Minimum confidence must be between 10% and 100%."
             )
-
-        # ----------------------------------------------------
-        # Validate lift
-        # ----------------------------------------------------
 
         if (
             min_lift is not None
@@ -1103,21 +1460,23 @@ def analyze():
             ]
         )
 
-        # ====================================================
-        # DEBUG
-        # ====================================================
-
         print()
-
-        print("=" * 60)
-        print("STARTING APRIORI ANALYSIS")
-        print("=" * 60)
+        print("=" * 70)
+        print(
+            "STARTING ASSOCIATION RULE MINING"
+        )
+        print("=" * 70)
 
         print(
             "Dataset:",
             analysis_state[
                 "dataset_name"
             ],
+        )
+
+        print(
+            "Algorithm:",
+            algorithm,
         )
 
         print(
@@ -1140,47 +1499,49 @@ def analyze():
             min_lift,
         )
 
-        print("=" * 60)
+        print("=" * 70)
+
+        start_time = time.perf_counter()
 
         # ----------------------------------------------------
-        # Start timer
+        # Frequent itemset mining
         # ----------------------------------------------------
 
-        start_time = (
-            time.perf_counter()
-        )
+        if algorithm == "FP-Growth":
 
-        # ====================================================
-        # STEP 1
-        # APRIORI
-        # ====================================================
+            print(
+                "Running FP-Growth..."
+            )
 
-        print(
-            "Running Apriori..."
-        )
+            frequent_itemsets = fp_growth(
+                transactions,
+                support,
+            )
 
-        frequent_itemsets = apriori(
-            transactions,
-            support,
-        )
+        else:
+
+            print(
+                "Running Apriori..."
+            )
+
+            frequent_itemsets = apriori(
+                transactions,
+                support,
+            )
 
         print(
             "Frequent itemsets found:",
-            len(
-                frequent_itemsets
-            ),
+            len(frequent_itemsets),
         )
 
-        # ====================================================
-        # STEP 2
-        # ASSOCIATION RULES
-        # ====================================================
+        # ----------------------------------------------------
+        # Association rules
+        # ----------------------------------------------------
 
         print(
             "Generating association rules..."
         )
 
-        # Existing rules engine
         rules = generate_rules(
             frequent_itemsets,
             confidence,
@@ -1190,10 +1551,6 @@ def analyze():
             "Rules generated before lift filter:",
             len(rules),
         )
-
-        # ----------------------------------------------------
-        # Lift filtering
-        # ----------------------------------------------------
 
         if min_lift is not None:
 
@@ -1209,10 +1566,6 @@ def analyze():
             len(rules),
         )
 
-        # ----------------------------------------------------
-        # Runtime
-        # ----------------------------------------------------
-
         runtime = (
             time.perf_counter()
             - start_time
@@ -1227,19 +1580,14 @@ def analyze():
             "seconds",
         )
 
-        print("=" * 60)
+        print("=" * 70)
 
         print(
-            "APRIORI ANALYSIS COMPLETED"
+            f"{algorithm.upper()} ANALYSIS COMPLETED"
         )
 
-        print("=" * 60)
-
+        print("=" * 70)
         print()
-
-        # ----------------------------------------------------
-        # Save results
-        # ----------------------------------------------------
 
         analysis_state.update(
             {
@@ -1260,11 +1608,14 @@ def analyze():
 
                 "runtime":
                     runtime,
+
+                "algorithm":
+                    algorithm,
             }
         )
 
         flash(
-            "Apriori analysis completed successfully.",
+            f"{algorithm} analysis completed successfully.",
             "success",
         )
 
@@ -1275,10 +1626,11 @@ def analyze():
     except Exception as exc:
 
         print()
-
-        print("=" * 60)
-        print("APRIORI ANALYSIS ERROR")
-        print("=" * 60)
+        print("=" * 70)
+        print(
+            "ASSOCIATION RULE MINING ERROR"
+        )
+        print("=" * 70)
 
         print(
             type(exc).__name__,
@@ -1286,12 +1638,12 @@ def analyze():
             str(exc),
         )
 
-        print("=" * 60)
-
+        print("=" * 70)
         print()
 
         flash(
-            "Analysis could not be completed. Please check your dataset and parameters.",
+            "Analysis could not be completed. "
+            "Please check your dataset and parameters.",
             "error",
         )
 
@@ -1308,12 +1660,17 @@ def analyze():
 def results():
 
     if (
-        not analysis_state["frequent_itemsets"]
-        and not analysis_state["rules"]
+        not analysis_state[
+            "frequent_itemsets"
+        ]
+        and not analysis_state[
+            "rules"
+        ]
     ):
 
         flash(
-            "No analysis results available. Run Apriori first.",
+            "No analysis results available. "
+            "Run an analysis first.",
             "error",
         )
 
@@ -1321,25 +1678,17 @@ def results():
             url_for("dashboard")
         )
 
-    itemsets, rules = (
-        format_results(
-            analysis_state.get(
-                "lift"
-            )
+    itemsets, rules = format_results(
+        analysis_state.get(
+            "lift"
         )
     )
 
     return render_template(
         "results.html",
-
-        analysis=
-            analysis_state,
-
-        itemsets=
-            itemsets,
-
-        rules=
-            rules,
+        analysis=analysis_state,
+        itemsets=itemsets,
+        rules=rules,
     )
 
 
@@ -1350,31 +1699,70 @@ def results():
 @app.route("/download-csv")
 def download_csv():
 
-    if not analysis_state.get("rules"):
-        flash("No association rules available to download.", "error")
-        return redirect(url_for("dashboard"))
+    if not analysis_state.get(
+        "rules"
+    ):
 
-    _, rules = format_results(analysis_state.get("lift"))
+        flash(
+            "No association rules available to download.",
+            "error",
+        )
 
-    rows = []
-    rows.append("Antecedent,Consequent,Support,Confidence,Lift")
+        return redirect(
+            url_for("dashboard")
+        )
+
+    _, rules = format_results(
+        analysis_state.get(
+            "lift"
+        )
+    )
+
+    rows = [
+        "Antecedent,Consequent,Support,Confidence,Lift"
+    ]
 
     for rule in rules:
-        antecedent = " + ".join(rule["antecedent"]).replace('"', '""')
-        consequent = " + ".join(rule["consequent"]).replace('"', '""')
-        support = f'{rule["support"]:.6f}'
-        confidence = f'{rule["confidence"]:.6f}'
-        lift = f'{rule["lift"]:.6f}'
 
-        rows.append(f'"{antecedent}","{consequent}",{support},{confidence},{lift}')
+        antecedent = (
+            " + ".join(
+                rule["antecedent"]
+            )
+            .replace(
+                '"',
+                '""',
+            )
+        )
 
-    csv_content = "\n".join(rows)
+        consequent = (
+            " + ".join(
+                rule["consequent"]
+            )
+            .replace(
+                '"',
+                '""',
+            )
+        )
+
+        rows.append(
+            f'"{antecedent}",'
+            f'"{consequent}",'
+            f'{rule["support"]:.6f},'
+            f'{rule["confidence"]:.6f},'
+            f'{rule["lift"]:.6f}'
+        )
+
+    csv_content = "\n".join(
+        rows
+    )
 
     return Response(
         csv_content,
         mimetype="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=association_rules.csv"
+            "Content-Disposition":
+                "attachment; "
+                "filename=association_rules.csv"
         },
     )
 
@@ -1391,35 +1779,28 @@ def reset():
 
     analysis_state.update(
         {
-            "dataset_name":
-                None,
+            "dataset_name": None,
+            "file_path": None,
 
-            "transactions":
-                [],
+            "needs_mapping": False,
+            "mapping_columns": [],
+            "mapping_suggestion": {},
 
-            "product_names":
-                {},
+            "transactions": [],
+            "product_names": {},
 
-            "frequent_itemsets":
-                {},
+            "frequent_itemsets": {},
+            "rules": [],
 
-            "rules":
-                [],
+            "support": None,
+            "confidence": None,
+            "lift": None,
 
-            "support":
-                None,
+            "runtime": None,
 
-            "confidence":
-                None,
+            "algorithm": "Apriori",
 
-            "lift":
-                None,
-
-            "runtime":
-                None,
-
-            "metrics":
-                {},
+            "metrics": {},
         }
     )
 
@@ -1458,27 +1839,34 @@ def benchmarks():
 
 
 # ============================================================
-# HEALTH CHECK
+# HEALTH
 # ============================================================
 
 @app.route("/health")
 def health():
 
     return {
-        "status":
-            "ok",
+        "status": "ok",
 
         "project":
             "Scalable Association Rule Mining",
 
-        "current_algorithm":
-            "Apriori",
+        "available_algorithms":
+            [
+                "Apriori",
+                "FP-Growth",
+            ],
 
         "future_algorithms":
             [
-                "FP-Growth",
                 "Eclat",
             ],
+
+        "current_algorithm":
+            analysis_state.get(
+                "algorithm",
+                "Apriori",
+            ),
     }
 
 
@@ -1521,30 +1909,32 @@ if __name__ == "__main__":
 
     print()
 
-    print("=" * 60)
+    print("=" * 70)
+
     print(
         "SCALABLE ASSOCIATION RULE MINING"
     )
-    print("=" * 60)
+
+    print("=" * 70)
 
     print(
-        "Algorithm : Apriori"
+        "Algorithms : Apriori + FP-Growth"
     )
 
     print(
-        "UI        : Flask"
+        "UI         : Flask"
     )
 
     print(
-        "Project   :",
+        "Project    :",
         BASE_DIR,
     )
 
     print(
-        "URL       : http://127.0.0.1:5000"
+        "URL        : http://127.0.0.1:5000"
     )
 
-    print("=" * 60)
+    print("=" * 70)
 
     print()
 

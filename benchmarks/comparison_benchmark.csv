@@ -1,0 +1,4 @@
+min_support,frequent_itemsets,apriori_runtime,fp_growth_runtime
+0.05,36,0.3446,0.5518
+0.02,381,2.7217,12.9915
+0.01,1976,12.3834,19.9671

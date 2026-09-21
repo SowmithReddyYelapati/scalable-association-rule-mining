@@ -23,6 +23,22 @@ The project currently focuses on **Apriori as the baseline algorithm**.
 - Real-world rule reporting
 - Automated test suite
 
+## Running the Application
+
+The canonical Flask web application entry point is:
+
+```bash
+python webapp/app.py
+```
+
+A root convenience entry point is also available:
+
+```bash
+python app.py
+```
+
+Open your browser and navigate to `http://127.0.0.1:5000`.
+
 ## Dataset
 
 The project uses the **Online Retail dataset**.

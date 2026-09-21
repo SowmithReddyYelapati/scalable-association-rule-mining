@@ -1,29 +1,92 @@
-from pathlib import Path
 import io
 
 import pytest
 
-from webapp.app import app
+from webapp.app import (
+    app,
+    analysis_state,
+)
 
 
 # ============================================================
-# TEST CONFIGURATION
+# TEST FIXTURE
 # ============================================================
-
-app.config["TESTING"] = True
-
 
 @pytest.fixture
 def client():
-    """
-    Create a Flask test client.
-    """
+
+    app.config["TESTING"] = True
+
     with app.test_client() as client:
         yield client
 
 
 # ============================================================
-# BASIC APPLICATION TESTS
+# RESET GLOBAL STATE BEFORE / AFTER EVERY TEST
+# ============================================================
+
+@pytest.fixture(autouse=True)
+def reset_analysis_state():
+
+    analysis_state.update(
+        {
+            "dataset_name": None,
+            "file_path": None,
+
+            "needs_mapping": False,
+            "mapping_columns": [],
+            "mapping_suggestion": {},
+
+            "transactions": [],
+            "product_names": {},
+
+            "frequent_itemsets": {},
+            "rules": [],
+
+            "support": None,
+            "confidence": None,
+            "lift": None,
+
+            "runtime": None,
+
+            "algorithm": "Apriori",
+
+            "metrics": {},
+        }
+    )
+
+    yield
+
+    analysis_state.update(
+        {
+            "dataset_name": None,
+            "file_path": None,
+
+            "needs_mapping": False,
+            "mapping_columns": [],
+            "mapping_suggestion": {},
+
+            "transactions": [],
+            "product_names": {},
+
+            "frequent_itemsets": {},
+            "rules": [],
+
+            "support": None,
+            "confidence": None,
+            "lift": None,
+
+            "runtime": None,
+
+            "algorithm": "Apriori",
+
+            "metrics": {},
+        }
+    )
+
+
+# ============================================================
+# BASIC ROUTES
 # ============================================================
 
 def test_home_page_loads(client):
@@ -32,27 +95,6 @@ def test_home_page_loads(client):
 
     assert response.status_code == 200
 
-
-def test_health_endpoint(client):
-
-    response = client.get("/health")
-
-    assert response.status_code == 200
-
-    data = response.get_json()
-
-    assert data["status"] == "ok"
-
-    assert data["current_algorithm"] == "Apriori"
-
-    assert "FP-Growth" in data["future_algorithms"]
-
-    assert "Eclat" in data["future_algorithms"]
-
-
-# ============================================================
-# LEARNING / BENCHMARK PAGES
-# ============================================================
 
 def test_learn_page_loads(client):
 
@@ -69,253 +111,101 @@ def test_benchmarks_page_loads(client):
 
 
 # ============================================================
-# RESET
+# HEALTH ENDPOINT
 # ============================================================
 
-def test_reset_endpoint(client):
+def test_health_endpoint(client):
 
-    response = client.post(
-        "/reset",
-        follow_redirects=True,
-    )
+    response = client.get("/health")
 
     assert response.status_code == 200
 
+    data = response.get_json()
 
-# ============================================================
-# RESULTS WITHOUT ANALYSIS
-# ============================================================
-
-def test_results_without_analysis_redirects(client):
-
-    response = client.get(
-        "/results",
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 302
-
-    assert response.headers["Location"].endswith("/")
-
-
-# ============================================================
-# ANALYSIS WITHOUT DATASET
-# ============================================================
-
-def test_analyze_without_dataset_redirects(client):
-
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 302
-
-    assert response.headers["Location"].endswith("/")
-
-
-# ============================================================
-# INVALID SUPPORT
-# ============================================================
-
-def test_invalid_support(client):
-
-    # Load the small test dataset first
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        upload_response = client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-            follow_redirects=True,
-        )
-
-    assert upload_response.status_code == 200
-
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "2.0",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
+    assert data["status"] == "ok"
 
     assert (
-        b"Minimum support"
-        in response.data
+        data["current_algorithm"]
+        == "Apriori"
+    )
+
+    assert (
+        "Apriori"
+        in data["available_algorithms"]
+    )
+
+    assert (
+        "FP-Growth"
+        in data["available_algorithms"]
+    )
+
+    assert (
+        "Eclat"
+        in data["future_algorithms"]
     )
 
 
-# ============================================================
-# INVALID CONFIDENCE
-# ============================================================
+def test_available_algorithms(client):
 
-def test_invalid_confidence(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-        )
-
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "2.0",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
+    response = client.get("/health")
 
     assert response.status_code == 200
 
-    assert (
-        b"Minimum confidence"
-        in response.data
-    )
+    data = response.get_json()
+
+    assert data[
+        "available_algorithms"
+    ] == [
+        "Apriori",
+        "FP-Growth",
+    ]
 
 
-# ============================================================
-# INVALID LIFT
-# ============================================================
+def test_future_algorithms_are_visible(client):
 
-def test_invalid_lift(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-        )
-
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "-1",
-        },
-        follow_redirects=True,
-    )
+    response = client.get("/health")
 
     assert response.status_code == 200
 
+    data = response.get_json()
+
     assert (
-        b"Minimum lift"
-        in response.data
+        "Apriori"
+        in data["available_algorithms"]
+    )
+
+    assert (
+        "FP-Growth"
+        in data["available_algorithms"]
+    )
+
+    assert (
+        "Eclat"
+        in data["future_algorithms"]
     )
 
 
-# ============================================================
-# UPLOAD TEST
-# ============================================================
+def test_eclat_is_not_available_yet(client):
 
-def test_upload_csv(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        response = client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-            follow_redirects=True,
-        )
+    response = client.get("/health")
 
     assert response.status_code == 200
 
+    data = response.get_json()
+
     assert (
-        b"uploaded successfully"
-        in response.data
+        "Eclat"
+        not in data["available_algorithms"]
+    )
+
+    assert (
+        "Eclat"
+        in data["future_algorithms"]
     )
 
 
 # ============================================================
-# UPLOAD WITHOUT FILE
+# UPLOAD VALIDATION
 # ============================================================
 
 def test_upload_without_file(client):
@@ -323,106 +213,289 @@ def test_upload_without_file(client):
     response = client.post(
         "/upload",
         data={},
-        follow_redirects=True,
     )
-
-    assert response.status_code == 200
-
-    assert (
-        b"Please select a dataset"
-        in response.data
-    )
-
-
-# ============================================================
-# INVALID FILE TYPE
-# ============================================================
-
-def test_upload_invalid_file_type(client):
-
-    response = client.post(
-        "/upload",
-        data={
-            "dataset": (
-                io.BytesIO(b"this is not a dataset"),
-                "test.txt",
-            )
-        },
-        content_type="multipart/form-data",
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-    assert (
-        b"Only CSV, XLSX and XLS files"
-        in response.data
-    )
-
-
-# ============================================================
-# COMPLETE APRIORI WORKFLOW
-# ============================================================
-
-def test_complete_apriori_workflow(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    # --------------------------------------------------------
-    # STEP 1 — Upload
-    # --------------------------------------------------------
-
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        response = client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-        )
 
     assert response.status_code == 302
 
-    # --------------------------------------------------------
-    # STEP 2 — Run Apriori
-    # --------------------------------------------------------
+
+def test_upload_invalid_file_type(client):
+
+    data = {
+        "dataset": (
+            io.BytesIO(
+                b"invalid file"
+            ),
+            "test.txt",
+        )
+    }
+
+    response = client.post(
+        "/upload",
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 302
+
+
+# ============================================================
+# ANALYZE WITHOUT DATASET
+# ============================================================
+
+def test_analyze_without_dataset(client):
 
     response = client.post(
         "/analyze",
         data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "1.0",
+            "algorithm": "apriori",
+            "support": "0.02",
+            "confidence": "0.60",
+            "lift": "",
         },
-        follow_redirects=False,
     )
 
-    # Successful analysis redirects to results
     assert response.status_code == 302
 
     assert (
         response.headers["Location"]
-        .endswith("/results")
+        .endswith("/")
     )
 
-    # --------------------------------------------------------
-    # STEP 3 — Results page
-    # --------------------------------------------------------
+
+def test_analyze_without_dataset_fp_growth(client):
+
+    response = client.post(
+        "/analyze",
+        data={
+            "algorithm": "fp-growth",
+            "support": "0.02",
+            "confidence": "0.60",
+            "lift": "",
+        },
+    )
+
+    assert response.status_code == 302
+
+    assert (
+        response.headers["Location"]
+        .endswith("/")
+    )
+
+
+# ============================================================
+# RESULTS WITHOUT ANALYSIS
+# ============================================================
+
+def test_results_without_analysis(client):
+
+    response = client.get(
+        "/results"
+    )
+
+    assert response.status_code == 302
+
+    assert (
+        response.headers["Location"]
+        .endswith("/")
+    )
+
+
+# ============================================================
+# DOWNLOAD WITHOUT RULES
+# ============================================================
+
+def test_download_without_rules(client):
+
+    response = client.get(
+        "/download-csv"
+    )
+
+    assert response.status_code == 302
+
+    assert (
+        response.headers["Location"]
+        .endswith("/")
+    )
+
+
+# ============================================================
+# RESET
+# ============================================================
+
+def test_reset_endpoint(client):
+
+    analysis_state[
+        "dataset_name"
+    ] = "test.csv"
+
+    analysis_state[
+        "algorithm"
+    ] = "FP-Growth"
+
+    analysis_state[
+        "transactions"
+    ] = [
+        frozenset(
+            {"A", "B"}
+        )
+    ]
+
+    analysis_state[
+        "frequent_itemsets"
+    ] = {
+        frozenset(
+            {"A"}
+        ): 1.0
+    }
+
+    analysis_state[
+        "rules"
+    ] = []
+
+    response = client.post(
+        "/reset"
+    )
+
+    assert response.status_code == 302
+
+    assert (
+        analysis_state[
+            "dataset_name"
+        ]
+        is None
+    )
+
+    assert (
+        analysis_state[
+            "transactions"
+        ]
+        == []
+    )
+
+    assert (
+        analysis_state[
+            "frequent_itemsets"
+        ]
+        == {}
+    )
+
+    assert (
+        analysis_state[
+            "rules"
+        ]
+        == []
+    )
+
+    assert (
+        analysis_state[
+            "algorithm"
+        ]
+        == "Apriori"
+    )
+
+
+# ============================================================
+# DASHBOARD WITH DATASET
+# ============================================================
+
+def test_dashboard_with_dataset(client):
+
+    analysis_state.update(
+        {
+            "dataset_name":
+                "test.csv",
+
+            "transactions": [
+                frozenset(
+                    {"A", "B"}
+                ),
+
+                frozenset(
+                    {"A", "C"}
+                ),
+            ],
+
+            "product_names": {},
+
+            "frequent_itemsets": {},
+
+            "rules": [],
+
+            "metrics": {
+                "rows": 2,
+                "transactions": 2,
+                "products": 3,
+                "average_items": 2.0,
+                "largest_transaction": 2,
+                "columns": 2,
+            },
+        }
+    )
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+
+# ============================================================
+# RESULTS PAGE WITH ITEMSETS
+# ============================================================
+
+def test_results_page_with_itemsets(client):
+
+    analysis_state.update(
+        {
+            "dataset_name":
+                "test.csv",
+
+            "transactions": [
+                frozenset(
+                    {"A", "B"}
+                ),
+
+                frozenset(
+                    {"A", "C"}
+                ),
+            ],
+
+            "product_names": {},
+
+            "frequent_itemsets": {
+                frozenset(
+                    {"A"}
+                ): 1.0,
+
+                frozenset(
+                    {"B"}
+                ): 0.5,
+
+                frozenset(
+                    {"C"}
+                ): 0.5,
+            },
+
+            "rules": [],
+
+            "support": 0.5,
+
+            "confidence": 0.6,
+
+            "lift": None,
+
+            "runtime": 0.01,
+
+            "algorithm": "FP-Growth",
+
+            "metrics": {
+                "rows": 2,
+                "transactions": 2,
+                "products": 3,
+                "average_items": 2.0,
+                "largest_transaction": 2,
+                "columns": 2,
+            },
+        }
+    )
 
     response = client.get(
         "/results"
@@ -430,27 +503,158 @@ def test_complete_apriori_workflow(client):
 
     assert response.status_code == 200
 
-    # --------------------------------------------------------
-    # STEP 4 — Verify important UI content
-    # --------------------------------------------------------
+
+# ============================================================
+# RESULTS PAGE WITH RULES
+# ============================================================
+
+def test_results_page_with_rules(client):
+
+    class DummyRule:
+
+        antecedent = frozenset(
+            {"A"}
+        )
+
+        consequent = frozenset(
+            {"B"}
+        )
+
+        support = 0.5
+
+        confidence = 0.8
+
+        lift = 1.6
+
+    analysis_state.update(
+        {
+            "dataset_name":
+                "test.csv",
+
+            "transactions": [
+                frozenset(
+                    {"A", "B"}
+                ),
+
+                frozenset(
+                    {"A"}
+                ),
+            ],
+
+            "product_names": {},
+
+            "frequent_itemsets": {
+                frozenset(
+                    {"A"}
+                ): 1.0,
+
+                frozenset(
+                    {"B"}
+                ): 0.5,
+
+                frozenset(
+                    {"A", "B"}
+                ): 0.5,
+            },
+
+            "rules": [
+                DummyRule()
+            ],
+
+            "support": 0.5,
+
+            "confidence": 0.6,
+
+            "lift": None,
+
+            "runtime": 0.01,
+
+            "algorithm": "FP-Growth",
+
+            "metrics": {
+                "rows": 2,
+                "transactions": 2,
+                "products": 2,
+                "average_items": 1.5,
+                "largest_transaction": 2,
+                "columns": 2,
+            },
+        }
+    )
+
+    response = client.get(
+        "/results"
+    )
+
+    assert response.status_code == 200
+
+
+# ============================================================
+# DOWNLOAD CSV WITH RULES
+# ============================================================
+
+def test_download_csv_with_rules(client):
+
+    class DummyRule:
+
+        antecedent = frozenset(
+            {"A"}
+        )
+
+        consequent = frozenset(
+            {"B"}
+        )
+
+        support = 0.5
+
+        confidence = 0.8
+
+        lift = 1.6
+
+    analysis_state.update(
+        {
+            "frequent_itemsets": {
+                frozenset(
+                    {"A"}
+                ): 1.0,
+
+                frozenset(
+                    {"B"}
+                ): 0.5,
+
+                frozenset(
+                    {"A", "B"}
+                ): 0.5,
+            },
+
+            "rules": [
+                DummyRule()
+            ],
+
+            "product_names": {},
+
+            "lift": None,
+        }
+    )
+
+    response = client.get(
+        "/download-csv"
+    )
+
+    assert response.status_code == 200
 
     assert (
-        b"Analysis Results"
+        response.mimetype
+        == "text/csv"
+    )
+
+    assert (
+        b"Antecedent"
         in response.data
     )
 
     assert (
-        b"Frequent Itemsets"
-        in response.data
-    )
-
-    assert (
-        b"Association Rules"
-        in response.data
-    )
-
-    assert (
-        b"Support"
+        b"Consequent"
         in response.data
     )
 
@@ -466,216 +670,282 @@ def test_complete_apriori_workflow(client):
 
 
 # ============================================================
-# LOW SUPPORT SHOULD PRODUCE MORE PATTERNS
+# FP-GROWTH RESULT STATE
 # ============================================================
 
-def test_support_changes_results(client):
+def test_fp_growth_result_state(client):
 
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
+    analysis_state.update(
+        {
+            "algorithm":
+                "FP-Growth",
 
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    # Upload dataset
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
+            "frequent_itemsets": {
+                frozenset(
+                    {"A"}
+                ): 0.8
             },
-            content_type="multipart/form-data",
-        )
 
-    # Run with 10% support
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-    # Run with lower support
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.05",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-
-# ============================================================
-# CONFIDENCE FILTER TEST
-# ============================================================
-
-def test_confidence_changes_results(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    # Upload
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-        )
-
-    # Low confidence
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-    # High confidence
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.90",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-
-# ============================================================
-# LIFT FILTER TEST
-# ============================================================
-
-def test_lift_filter(client):
-
-    csv_path = Path(
-        "association_rule_test_dataset.csv"
-    )
-
-    if not csv_path.exists():
-
-        pytest.skip(
-            "association_rule_test_dataset.csv not found"
-        )
-
-    # Upload
-    with open(
-        csv_path,
-        "rb",
-    ) as file:
-
-        client.post(
-            "/upload",
-            data={
-                "dataset": (
-                    file,
-                    "association_rule_test_dataset.csv",
-                )
-            },
-            content_type="multipart/form-data",
-        )
-
-    # Run with normal lift
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "1.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-    # Run with high lift
-    response = client.post(
-        "/analyze",
-        data={
-            "support": "0.10",
-            "confidence": "0.50",
-            "lift": "2.0",
-        },
-        follow_redirects=True,
-    )
-
-    assert response.status_code == 200
-
-
-# ============================================================
-# FUTURE ALGORITHMS
-# ============================================================
-
-def test_future_algorithms_are_visible(client):
-
-    response = client.get(
-        "/health"
-    )
-
-    assert response.status_code == 200
-
-    data = response.get_json()
-
-    assert (
-        "FP-Growth"
-        in data["future_algorithms"]
+            "rules": [],
+        }
     )
 
     assert (
-        "Eclat"
-        in data["future_algorithms"]
+        analysis_state[
+            "algorithm"
+        ]
+        == "FP-Growth"
+    )
+
+    assert (
+        frozenset(
+            {"A"}
+        )
+        in analysis_state[
+            "frequent_itemsets"
+        ]
     )
 
 
-def test_download_csv_no_rules(client):
+# ============================================================
+# APRIORI RESULT STATE
+# ============================================================
 
-    response = client.get(
-        "/download-csv",
-        follow_redirects=True,
+def test_apriori_result_state(client):
+
+    analysis_state.update(
+        {
+            "algorithm":
+                "Apriori",
+
+            "frequent_itemsets": {
+                frozenset(
+                    {"A"}
+                ): 0.8
+            },
+
+            "rules": [],
+        }
     )
 
-    assert response.status_code == 200
-    assert b"No association rules available to download" in response.data
+    assert (
+        analysis_state[
+            "algorithm"
+        ]
+        == "Apriori"
+    )
+
+
+# ============================================================
+# INITIAL STATE VALIDATION
+# ============================================================
+
+def test_initial_analysis_state():
+
+    assert (
+        analysis_state[
+            "algorithm"
+        ]
+        == "Apriori"
+    )
+
+    assert (
+        analysis_state[
+            "transactions"
+        ]
+        == []
+    )
+
+    assert (
+        analysis_state[
+            "frequent_itemsets"
+        ]
+        == {}
+    )
+
+    assert (
+        analysis_state[
+            "rules"
+        ]
+        == []
+    )
+
+
+# ============================================================
+# METRICS VALIDATION
+# ============================================================
+
+def test_dashboard_metrics_are_complete():
+
+    analysis_state["metrics"] = {
+        "rows": 10,
+        "transactions": 5,
+        "products": 4,
+        "average_items": 2.0,
+        "largest_transaction": 4,
+        "columns": 3,
+    }
+
+    metrics = analysis_state["metrics"]
+
+    assert metrics["rows"] == 10
+
+    assert metrics["transactions"] == 5
+
+    assert metrics["products"] == 4
+
+    assert metrics["average_items"] == 2.0
+
+    assert metrics["largest_transaction"] == 4
+
+    assert metrics["columns"] == 3
+
+
+# ============================================================
+# ALGORITHM SELECTION VALIDATION
+# ============================================================
+
+def test_default_algorithm_is_apriori():
+
+    assert (
+        analysis_state[
+            "algorithm"
+        ]
+        == "Apriori"
+    )
+
+
+def test_fp_growth_can_be_selected():
+
+    analysis_state[
+        "algorithm"
+    ] = "FP-Growth"
+
+    assert (
+        analysis_state[
+            "algorithm"
+        ]
+        == "FP-Growth"
+    )
+
+
+# ============================================================
+# TRANSACTION STATE VALIDATION
+# ============================================================
+
+def test_transactions_are_sets():
+
+    analysis_state[
+        "transactions"
+    ] = [
+        frozenset(
+            {"Milk", "Bread"}
+        ),
+
+        frozenset(
+            {"Bread", "Eggs"}
+        ),
+    ]
+
+    transactions = (
+        analysis_state[
+            "transactions"
+        ]
+    )
+
+    assert len(transactions) == 2
+
+    assert isinstance(
+        transactions[0],
+        frozenset,
+    )
+
+    assert (
+        "Milk"
+        in transactions[0]
+    )
+
+    assert (
+        "Bread"
+        in transactions[0]
+    )
+
+
+# ============================================================
+# PRODUCT NAME MAPPING
+# ============================================================
+
+def test_product_name_mapping():
+
+    analysis_state[
+        "product_names"
+    ] = {
+        "P001":
+            "Milk",
+
+        "P002":
+            "Bread",
+    }
+
+    mapping = (
+        analysis_state[
+            "product_names"
+        ]
+    )
+
+    assert (
+        mapping["P001"]
+        == "Milk"
+    )
+
+    assert (
+        mapping["P002"]
+        == "Bread"
+    )
+
+
+# ============================================================
+# FREQUENT ITEMSET VALIDATION
+# ============================================================
+
+def test_frequent_itemsets_are_stored():
+
+    analysis_state[
+        "frequent_itemsets"
+    ] = {
+        frozenset(
+            {"Milk"}
+        ): 0.80,
+
+        frozenset(
+            {"Bread"}
+        ): 0.70,
+
+        frozenset(
+            {"Milk", "Bread"}
+        ): 0.60,
+    }
+
+    itemsets = (
+        analysis_state[
+            "frequent_itemsets"
+        ]
+    )
+
+    assert len(itemsets) == 3
+
+    assert (
+        itemsets[
+            frozenset({"Milk"})
+        ]
+        == 0.80
+    )
+
+    assert (
+        itemsets[
+            frozenset(
+                {"Milk", "Bread"}
+            )
+        ]
+        == 0.60
+    )

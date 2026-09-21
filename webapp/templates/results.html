@@ -2,28 +2,55 @@
 
 {% block title %}Analysis Results | ARM Lab{% endblock %}
 
-
 {% block content %}
 
 
 <!-- =========================================================
-     RESULTS HEADER
+     RESULTS HEADER & RUN METADATA SUMMARY
      ========================================================= -->
 
 <section class="results-header">
 
     <div>
 
-        <span class="eyebrow dark">
-            APRIORI ANALYSIS COMPLETE
-        </span>
+        <div class="results-badge-row">
+            <span class="eyebrow dark" style="margin-bottom: 0;">MINING COMPLETE</span>
+            <span class="algo-pill-badge">
+                Algorithm: <strong>{{ analysis.algorithm }}</strong>
+            </span>
+        </div>
 
         <h1>Analysis Results</h1>
 
         <p>
-            Your dataset has been processed using the
-            Apriori frequent-pattern mining algorithm.
+            Frequent itemsets and association rules mined from <strong>{{ analysis.dataset_name or 'Uploaded Dataset' }}</strong>.
         </p>
+
+        <!-- Inline Run Summary Chips -->
+        <div class="run-summary-bar">
+            <div class="summary-chip">
+                <span class="chip-label">Algorithm</span>
+                <span class="chip-val">{{ analysis.algorithm }}</span>
+            </div>
+            <div class="summary-chip">
+                <span class="chip-label">Runtime</span>
+                <span class="chip-val">{{ "%.2f"|format(analysis.runtime) }}s</span>
+            </div>
+            <div class="summary-chip">
+                <span class="chip-label">Min Support</span>
+                <span class="chip-val">{{ "%.2f"|format(analysis.support * 100) }}%</span>
+            </div>
+            <div class="summary-chip">
+                <span class="chip-label">Min Confidence</span>
+                <span class="chip-val">{{ "%.2f"|format(analysis.confidence * 100) }}%</span>
+            </div>
+            {% if analysis.lift %}
+            <div class="summary-chip">
+                <span class="chip-label">Min Lift</span>
+                <span class="chip-val">{{ "%.2f"|format(analysis.lift) }}</span>
+            </div>
+            {% endif %}
+        </div>
 
     </div>
 
@@ -31,14 +58,14 @@
 
         <a
             href="{{ url_for('download_csv') }}"
-            class="button secondary"
+            class="button primary"
             id="downloadCsvBtn"
         >
-            ⬇ Download Rules CSV
+            ⬇ DOWNLOAD CSV
         </a>
 
         <a
-            href="/"
+            href="{{ url_for('dashboard') }}"
             class="button secondary-dark"
         >
             ← New Analysis
@@ -65,15 +92,15 @@
 
 
 <!-- =========================================================
-     ANALYSIS SUMMARY — 4 metric cards
+     RESULTS STATISTICS — 4 Professional Summary Cards
      ========================================================= -->
 
 <section class="section">
 
     <div class="section-heading">
-        <span class="eyebrow dark">SUMMARY</span>
-        <h2>What Apriori discovered</h2>
-        <p>A quick overview of the dataset and mining results.</p>
+        <span class="eyebrow dark">EXECUTIVE SUMMARY</span>
+        <h2>Key Mining Metrics</h2>
+        <p>High-level overview of patterns and execution efficiency.</p>
     </div>
 
     <div class="stats">
@@ -82,36 +109,32 @@
         <div class="card">
             <span>Frequent Itemsets</span>
             <strong>{{ itemsets|length }}</strong>
-            <small>Frequent patterns discovered</small>
+            <small>Item combinations ≥ {{ "%.2f"|format(analysis.support * 100) }}% support</small>
         </div>
 
         <!-- Association Rules -->
         <div class="card">
             <span>Association Rules</span>
             <strong>{{ rules|length }}</strong>
-            <small>Rules satisfying all filters</small>
+            <small>Generated directional rules</small>
         </div>
 
-        <!-- Execution Time -->
+        <!-- Transactions -->
         <div class="card">
-            <span>Execution Time</span>
+            <span>Transactions</span>
+            <strong>
+                {{ "{:,}".format(analysis.metrics.get("transactions", 0)) }}
+            </strong>
+            <small>Total dataset baskets evaluated</small>
+        </div>
+
+        <!-- Runtime -->
+        <div class="card">
+            <span>Runtime</span>
             <strong>
                 {{ "%.2f"|format(analysis.runtime) }}s
             </strong>
-            <small>Total analysis runtime</small>
-        </div>
-
-        <!-- Highest Lift -->
-        <div class="card">
-            <span>Highest Lift</span>
-            <strong>
-                {% if rules %}
-                    {{ "%.2f"|format(rules[0]["lift"]) }}
-                {% else %}
-                    —
-                {% endif %}
-            </strong>
-            <small>Strongest association found</small>
+            <small>Total mining execution time</small>
         </div>
 
     </div>
@@ -120,79 +143,21 @@
 
 
 <!-- =========================================================
-     ANALYSIS PARAMETERS
+     FREQUENT ITEMSETS TABLE
      ========================================================= -->
 
-<section class="section">
-
-    <div class="section-heading">
-        <span class="eyebrow dark">PARAMETERS</span>
-        <h2>Mining Configuration</h2>
-        <p>These parameters were used for this analysis.</p>
-    </div>
-
-    <div class="metric-explanation">
-
-        <div>
-            <strong>Algorithm</strong>
-            <span>Apriori</span>
-        </div>
-
-        <div>
-            <strong>Dataset</strong>
-            <span>{{ analysis.dataset_name }}</span>
-        </div>
-
-        <div>
-            <strong>Transactions</strong>
-            <span>
-                {{ "{:,}".format(analysis.metrics["transactions"]) }}
-            </span>
-        </div>
-
-        <div>
-            <strong>Minimum Support</strong>
-            <span>
-                {{ "%.2f"|format(analysis.support * 100) }}%
-            </span>
-        </div>
-
-        <div>
-            <strong>Minimum Confidence</strong>
-            <span>
-                {{ "%.2f"|format(analysis.confidence * 100) }}%
-            </span>
-        </div>
-
-        <div>
-            <strong>Execution Time</strong>
-            <span>
-                {{ "%.4f"|format(analysis.runtime) }} seconds
-            </span>
-        </div>
-
-    </div>
-
-</section>
-
-
-<!-- =========================================================
-     FREQUENT ITEMSETS
-     ========================================================= -->
-
-<section class="section">
+<section class="section" id="itemsets-section">
 
     <div class="section-heading">
 
-        <span class="eyebrow dark">STEP 1 · FREQUENT ITEMSETS</span>
+        <span class="eyebrow dark">STAGE 1 · FREQUENT PATTERNS</span>
 
-        <h2>Frequent Product Combinations</h2>
+        <h2>Frequent Itemsets</h2>
 
         <p>
-            These combinations of products appear together
-            in at least
-            {{ "%.2f"|format(analysis.support * 100) }}%
-            of all transactions.
+            Combinations of products that co-occur in at least
+            <strong>{{ "%.2f"|format(analysis.support * 100) }}%</strong>
+            of all {{ "{:,}".format(analysis.metrics.get("transactions", 0)) }} transactions.
         </p>
 
     </div>
@@ -206,10 +171,10 @@
 
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Product Combination</th>
-                    <th>Size</th>
-                    <th>Support</th>
+                    <th style="width: 60px;">#</th>
+                    <th>Itemset</th>
+                    <th style="width: 100px; text-align: center;">Size</th>
+                    <th style="width: 140px; text-align: right;">Support</th>
                 </tr>
             </thead>
 
@@ -231,12 +196,14 @@
                         </div>
                     </td>
 
-                    <td>{{ itemset["size"] }}</td>
+                    <td style="text-align: center;">
+                        <span class="size-badge">{{ itemset["size"] }}</span>
+                    </td>
 
-                    <td>
-                        <strong>
+                    <td style="text-align: right;">
+                        <span class="badge-support-val">
                             {{ "%.2f"|format(itemset["support"] * 100) }}%
-                        </strong>
+                        </span>
                     </td>
 
                 </tr>
@@ -250,7 +217,7 @@
         <div class="table-note">
             Showing top 100 of
             {{ "{:,}".format(itemsets|length) }}
-            frequent itemsets, ranked by support.
+            frequent itemsets, ranked by size and support.
         </div>
         {% endif %}
 
@@ -272,12 +239,12 @@
         </p>
 
         <ul class="empty-suggestions">
-            <li>Try lowering minimum support</li>
-            <li>Try lowering minimum confidence</li>
+            <li>Try lowering the Minimum Support threshold</li>
+            <li>Verify transaction records in your uploaded dataset</li>
         </ul>
 
-        <a href="/" class="button primary">
-            ← Back to Configuration
+        <a href="{{ url_for('dashboard') }}" class="button primary">
+            ← Back to Dashboard
         </a>
 
     </div>
@@ -288,21 +255,19 @@
 
 
 <!-- =========================================================
-     ASSOCIATION RULES
+     ASSOCIATION RULES TABLE
      ========================================================= -->
 
-<section class="section">
+<section class="section" id="rules-section">
 
     <div class="section-heading">
 
-        <span class="eyebrow dark">STEP 2 · ASSOCIATION RULES</span>
+        <span class="eyebrow dark">STAGE 2 · DIRECTIONAL ASSOCIATIONS</span>
 
-        <h2>Product Association Rules</h2>
+        <h2>Association Rules</h2>
 
         <p>
-            These rules describe directional relationships
-            between products that frequently co-occur.
-            Sorted by lift (strongest first).
+            Rules of the form <strong>Antecedent → Consequent</strong> satisfying confidence ≥ {{ "%.2f"|format(analysis.confidence * 100) }}%. Ranked by Lift (strongest correlation first).
         </p>
 
     </div>
@@ -357,12 +322,13 @@
 
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>If customer buys</th>
-                    <th>They may also buy</th>
-                    <th>Support</th>
-                    <th>Confidence</th>
-                    <th>Lift</th>
+                    <th style="width: 50px;">#</th>
+                    <th>Antecedent (IF)</th>
+                    <th style="width: 40px; text-align: center;">→</th>
+                    <th>Consequent (THEN)</th>
+                    <th style="width: 110px; text-align: right;">Support</th>
+                    <th style="width: 120px; text-align: right;">Confidence</th>
+                    <th style="width: 110px; text-align: right;">Lift</th>
                 </tr>
             </thead>
 
@@ -370,7 +336,7 @@
 
                 {% for rule in rules[:200] %}
                 <tr
-                    class="rule-row"
+                    class="rule-row {% if rule['lift'] > 1 %}high-lift-row{% endif %}"
                     data-confidence="{{ (rule['confidence'] * 100) | round(4) }}"
                     data-lift="{{ rule['lift'] | round(4) }}"
                 >
@@ -389,11 +355,16 @@
                         </div>
                     </td>
 
+                    <!-- Arrow -->
+                    <td style="text-align: center; color: var(--primary); font-weight: 700;">
+                        →
+                    </td>
+
                     <!-- Consequent -->
                     <td>
                         <div class="product-list">
                             {% for item in rule["consequent"] %}
-                                <span class="product-tag">{{ item }}</span>
+                                <span class="product-tag consequent-tag">{{ item }}</span>
                                 {% if not loop.last %}
                                     <span class="product-arrow">+</span>
                                 {% endif %}
@@ -402,19 +373,19 @@
                     </td>
 
                     <!-- Support -->
-                    <td>
+                    <td style="text-align: right;">
                         {{ "%.2f"|format(rule["support"] * 100) }}%
                     </td>
 
                     <!-- Confidence -->
-                    <td>
+                    <td style="text-align: right;">
                         <strong>
                             {{ "%.2f"|format(rule["confidence"] * 100) }}%
                         </strong>
                     </td>
 
-                    <!-- Lift with color badge -->
-                    <td>
+                    <!-- Lift with subtle badge -->
+                    <td style="text-align: right;">
                         {% if rule["lift"] > 1 %}
                             <span class="metric-positive">
                                 ▲ {{ "%.2f"|format(rule["lift"]) }}
@@ -437,10 +408,9 @@
 
         </table>
 
-        <!-- Table note -->
+        <!-- Table note for filtering -->
         <div id="noRulesRow" style="display:none;" class="table-note">
-            No rules match the current filter settings.
-            Try lowering the thresholds.
+            No rules match the current filter thresholds. Try decreasing Min. Confidence or Min. Lift.
         </div>
 
         {% if rules|length > 200 %}
@@ -463,17 +433,16 @@
         <h2>No association rules found</h2>
 
         <p>
-            No rules satisfied the selected confidence and
-            lift thresholds. The frequent itemsets were found
-            but no rules could be generated.
+            No rules satisfied the selected confidence or lift thresholds.
+            Frequent itemsets were discovered, but no directional rules met minimum criteria.
         </p>
 
         <ul class="empty-suggestions">
-            <li>Try lowering minimum confidence</li>
-            <li>Try lowering minimum support</li>
+            <li>Try lowering the Minimum Confidence threshold (e.g. to 40% or 50%)</li>
+            <li>Try lowering the Minimum Support threshold to discover more candidate itemsets</li>
         </ul>
 
-        <a href="/" class="button primary">
+        <a href="{{ url_for('dashboard') }}" class="button primary">
             ← Back to Configuration
         </a>
 
@@ -485,46 +454,43 @@
 
 
 <!-- =========================================================
-     LIFT INTERPRETATION
+     LIFT & METRIC INTERPRETATION SECTION
      ========================================================= -->
 
 <section class="section">
 
     <div class="section-heading">
-        <span class="eyebrow dark">INTERPRETING LIFT</span>
-        <h2>How to read the Lift metric</h2>
+        <span class="eyebrow dark">STATISTICAL REFERENCE</span>
+        <h2>How to Interpret ARM Metrics</h2>
         <p>
-            Lift measures how much stronger the association is
-            compared to random co-occurrence.
+            Understanding the mathematical definitions and practical meaning of Support, Confidence, and Lift.
         </p>
     </div>
 
     <div class="metric-explanation">
 
         <div>
-            <strong>▲ Lift &gt; 1 — Positive association</strong>
+            <strong>Support: \(P(A \cup B)\)</strong>
             <span>
-                The products appear together more often than
-                expected by chance. A higher lift means a
-                stronger, more useful rule.
+                Proportion of transactions in the dataset containing all items in the rule. Evaluates statistical frequency.
             </span>
-            <span class="formula">Lift = Confidence / P(Consequent)</span>
+            <span class="formula">Support(A→B) = count(A ∪ B) / |T|</span>
         </div>
 
         <div>
-            <strong>= Lift = 1 — Independent</strong>
+            <strong>Confidence: \(P(B | A)\)</strong>
             <span>
-                The items occur together purely by chance.
-                The rule has no predictive value.
+                Conditional probability that a transaction contains B given that it already contains A. Evaluates rule reliability.
             </span>
+            <span class="formula">Confidence(A→B) = Support(A ∪ B) / Support(A)</span>
         </div>
 
         <div>
-            <strong>▼ Lift &lt; 1 — Negative association</strong>
+            <strong>Lift: \(\frac{P(B|A)}{P(B)}\)</strong>
             <span>
-                The items appear together less often than expected.
-                Buying one product makes the other less likely.
+                Ratio of observed joint support to expected support under independence. Lift &gt; 1 indicates positive association.
             </span>
+            <span class="formula">Lift(A→B) = Confidence(A→B) / Support(B)</span>
         </div>
 
     </div>
@@ -533,168 +499,32 @@
 
 
 <!-- =========================================================
-     METRIC REFERENCE
-     ========================================================= -->
-
-<section class="section">
-
-    <div class="section-heading">
-        <span class="eyebrow dark">METRIC REFERENCE</span>
-        <h2>Support · Confidence · Lift</h2>
-    </div>
-
-    <div class="metric-explanation">
-
-        <div>
-            <strong>Support</strong>
-            <span>
-                The proportion of all transactions that contain
-                both the antecedent and consequent.
-            </span>
-            <span class="formula">
-                Support(A→B) = freq(A∪B) / |T|
-            </span>
-        </div>
-
-        <div>
-            <strong>Confidence</strong>
-            <span>
-                Among transactions containing the antecedent,
-                the fraction that also contain the consequent.
-            </span>
-            <span class="formula">
-                Confidence(A→B) = Support(A∪B) / Support(A)
-            </span>
-        </div>
-
-        <div>
-            <strong>Lift</strong>
-            <span>
-                How much more likely the consequent is given
-                the antecedent, relative to its overall frequency.
-            </span>
-            <span class="formula">
-                Lift(A→B) = Confidence(A→B) / Support(B)
-            </span>
-        </div>
-
-    </div>
-
-</section>
-
-
-<!-- =========================================================
-     FINAL ACTIONS
+     BOTTOM ACTIONS
      ========================================================= -->
 
 <section class="section final-actions">
 
     <div class="results-actions">
 
-        <a href="/" class="button primary">
+        <a href="{{ url_for('dashboard') }}" class="button primary">
             🚀 Run Another Analysis
         </a>
 
-        <a href="/learn" class="button secondary">
-            How Apriori Works
-        </a>
-
-        <a href="/benchmarks" class="button secondary">
-            View Benchmarks
-        </a>
-
-        <a
-            href="{{ url_for('download_csv') }}"
-            class="button secondary"
-        >
+        <a href="{{ url_for('download_csv') }}" class="button secondary">
             ⬇ Download Rules CSV
+        </a>
+
+        <a href="{{ url_for('learn') }}" class="button secondary">
+            Learn Algorithm Details
+        </a>
+
+        <a href="{{ url_for('benchmarks') }}" class="button secondary">
+            View Benchmarks
         </a>
 
     </div>
 
 </section>
-
-
-<!-- =========================================================
-     CLIENT-SIDE FILTER JAVASCRIPT
-     ========================================================= -->
-
-<script>
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const filterConfidence =
-        document.getElementById("filterConfidence");
-
-    const filterLift =
-        document.getElementById("filterLift");
-
-    const rulesCount =
-        document.getElementById("rulesCount");
-
-    const ruleRows =
-        document.querySelectorAll(".rule-row");
-
-    const noRulesRow =
-        document.getElementById("noRulesRow");
-
-
-    function filterRules() {
-
-        const minConf =
-            parseFloat(filterConfidence.value) || 0;
-
-        const minLift =
-            parseFloat(filterLift.value) || 0;
-
-        let visible = 0;
-
-        ruleRows.forEach(function (row) {
-
-            const conf =
-                parseFloat(row.dataset.confidence);
-
-            const lift =
-                parseFloat(row.dataset.lift);
-
-            const show =
-                conf >= minConf && lift >= minLift;
-
-            row.style.display = show ? "" : "none";
-
-            if (show) visible++;
-
-        });
-
-
-        if (rulesCount) {
-            rulesCount.textContent = visible + " rules";
-        }
-
-        if (noRulesRow) {
-            noRulesRow.style.display =
-                visible === 0 ? "block" : "none";
-        }
-
-    }
-
-
-    if (filterConfidence) {
-        filterConfidence.addEventListener("input", filterRules);
-    }
-
-    if (filterLift) {
-        filterLift.addEventListener("input", filterRules);
-    }
-
-    /* Initial count */
-    if (rulesCount) {
-        rulesCount.textContent = ruleRows.length + " rules";
-    }
-
-});
-
-</script>
 
 
 {% endblock %}

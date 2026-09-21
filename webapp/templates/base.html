@@ -13,11 +13,11 @@
 
     <meta
         name="description"
-        content="ARM Lab — Scalable Association Rule Mining. Discover meaningful product relationships using Apriori, FP-Growth, and Eclat algorithms."
+        content="ARM Lab — Scalable Association Rule Mining. Discover meaningful product relationships using Apriori and FP-Growth algorithms."
     >
 
     <title>
-        {% block title %}ARM Lab{% endblock %}
+        {% block title %}ARM Lab — Scalable Association Rule Mining{% endblock %}
     </title>
 
     <!-- Google Fonts: Inter -->
@@ -37,7 +37,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
+        href="{{ url_for('static', filename='css/style.css') }}?v=3"
     >
 
     {% block head %}{% endblock %}
@@ -55,7 +55,7 @@
 <header class="navbar" id="navbar">
 
     <!-- Brand -->
-    <a href="/" class="brand">
+    <a href="{{ url_for('dashboard') }}" class="brand" aria-label="ARM Lab Home">
 
         <span class="brand-icon">🧠</span>
 
@@ -68,25 +68,25 @@
 
 
     <!-- Nav links -->
-    <nav class="nav-links" id="mainNavigation">
+    <nav class="nav-links" id="mainNavigation" aria-label="Main Navigation">
 
         <a
-            href="/"
-            {% if request.endpoint == 'dashboard' %}class="active"{% endif %}
+            href="{{ url_for('dashboard') }}"
+            {% if request.endpoint in ['dashboard', 'results'] %}class="active" aria-current="page"{% endif %}
         >
-            Analyze
+            Dashboard
         </a>
 
         <a
-            href="/learn"
-            {% if request.endpoint == 'learn' %}class="active"{% endif %}
+            href="{{ url_for('learn') }}"
+            {% if request.endpoint == 'learn' %}class="active" aria-current="page"{% endif %}
         >
-            How It Works
+            Learn
         </a>
 
         <a
-            href="/benchmarks"
-            {% if request.endpoint == 'benchmarks' %}class="active"{% endif %}
+            href="{{ url_for('benchmarks') }}"
+            {% if request.endpoint == 'benchmarks' %}class="active" aria-current="page"{% endif %}
         >
             Benchmarks
         </a>
@@ -127,9 +127,12 @@
 
 <footer>
 
-    <strong>Scalable Association Rule Mining</strong>
+    <div>
+        <strong>Scalable Association Rule Mining</strong>
+        <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--muted);">Research &amp; Engineering Platform for Pattern Discovery</p>
+    </div>
 
-    <span>Apriori &middot; FP-Growth (coming) &middot; Eclat (coming)</span>
+    <span>Apriori &middot; FP-Growth &middot; ARM Lab</span>
 
 </footer>
 

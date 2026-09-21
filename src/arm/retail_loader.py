@@ -46,10 +46,13 @@ def load_online_retail(
         .reset_index()
     )
 
-    grouped.to_csv(
-        cache_path,
-        index=False,
-    )
+    try:
+        grouped.to_csv(
+            cache_path,
+            index=False,
+        )
+    except OSError:
+        pass
 
     return [
         frozenset(row.split("|"))

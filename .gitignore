@@ -226,3 +226,6 @@ __pycache__/
 # Benchmark generated outputs
 benchmarks/results.csv
 benchmarks/scalability.png
+
+# Vercel
+.vercel

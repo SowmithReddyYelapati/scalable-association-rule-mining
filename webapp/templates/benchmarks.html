@@ -13,11 +13,9 @@
 
     <div>
         <span class="eyebrow dark">PERFORMANCE &amp; SCALABILITY</span>
-        <h1>Apriori Benchmarks</h1>
+        <h1>Association Rule Mining Benchmarks</h1>
         <p>
-            Evaluate how the Apriori algorithm performs as
-            the minimum support threshold changes on real-world
-            transactional data.
+            Evaluate how Apriori and FP-Growth perform as the minimum support threshold decreases on real-world transactional data.
         </p>
     </div>
 
@@ -40,8 +38,7 @@
         <span class="eyebrow dark">REAL-WORLD DATASET</span>
         <h2>Online Retail Benchmark</h2>
         <p>
-            Results generated from the UCI Online Retail dataset —
-            a real-world UK e-commerce transaction log.
+            Results generated from the UCI Online Retail dataset — a real-world UK e-commerce transaction log.
         </p>
     </div>
 
@@ -60,15 +57,15 @@
         </div>
 
         <div class="card">
-            <span>Algorithm</span>
-            <strong>Apriori</strong>
-            <small>Candidate-based mining</small>
+            <span>Algorithms</span>
+            <strong>Apriori vs. FP-Growth</strong>
+            <small>Candidate-gen vs. pattern-tree</small>
         </div>
 
         <div class="card">
             <span>Status</span>
-            <strong>✓ Ready</strong>
-            <small>Benchmark data available</small>
+            <strong>✓ Measured</strong>
+            <small>Benchmark data updated</small>
         </div>
 
     </div>
@@ -84,11 +81,9 @@
 
     <div class="section-heading">
         <span class="eyebrow dark">EXPERIMENTS</span>
-        <h2>Support vs. Frequent Itemsets</h2>
+        <h2>Support vs. Execution Runtimes</h2>
         <p>
-            Lowering minimum support allows more itemsets to
-            qualify as frequent, increasing both the number of
-            results and the computational workload.
+            Lowering minimum support allows more itemsets to qualify as frequent, increasing candidate generation/FP-tree complexity and overall computational workload.
         </p>
     </div>
 
@@ -100,8 +95,9 @@
                 <tr>
                     <th>Minimum Support</th>
                     <th>Frequent Itemsets</th>
-                    <th>Interpretation</th>
-                    <th>Status</th>
+                    <th>Apriori Runtime</th>
+                    <th>FP-Growth Runtime</th>
+                    <th>Comparison Insight</th>
                 </tr>
             </thead>
 
@@ -109,25 +105,27 @@
 
                 <tr>
                     <td><strong>5%</strong></td>
-                    <td>Benchmark result</td>
                     <td>
-                        High threshold → very few common patterns.
-                        Fast runtime.
+                        <strong>36</strong>
+                        <span style="color:var(--muted);font-size:12px;margin-left:4px;">itemsets</span>
                     </td>
+                    <td><strong>0.3446s</strong></td>
+                    <td><strong>0.5518s</strong></td>
                     <td>
-                        <span class="metric-neutral">Planned</span>
+                        Few common patterns. Candidate-generation is fast, and FP-tree overhead is relatively high.
                     </td>
                 </tr>
 
                 <tr>
                     <td><strong>2%</strong></td>
-                    <td>Benchmark result</td>
                     <td>
-                        More patterns become frequent.
-                        Runtime increases notably.
+                        <strong>381</strong>
+                        <span style="color:var(--muted);font-size:12px;margin-left:4px;">itemsets</span>
                     </td>
+                    <td><strong>2.7217s</strong></td>
+                    <td><strong>12.9915s</strong></td>
                     <td>
-                        <span class="metric-neutral">Planned</span>
+                        More patterns frequent. Pure Python FP-tree recursion overhead becomes more significant.
                     </td>
                 </tr>
 
@@ -137,12 +135,10 @@
                         <strong>1,976</strong>
                         <span style="color:var(--muted);font-size:12px;margin-left:4px;">itemsets</span>
                     </td>
+                    <td><strong>12.3834s</strong></td>
+                    <td><strong>19.9671s</strong></td>
                     <td>
-                        Detailed real-world experiment.
-                        Significant candidate explosion.
-                    </td>
-                    <td>
-                        <span class="metric-positive">✓ Measured</span>
+                        Significant candidate explosion, but Apriori's set operations still outperform Python tree traversal object overhead.
                     </td>
                 </tr>
 
@@ -150,6 +146,14 @@
 
         </table>
 
+    </div>
+
+    <div class="benchmark-chart-card">
+        <h3>Runtime Performance Chart</h3>
+        <img
+            src="{{ url_for('static', filename='real_world_runtime_comparison.png') }}"
+            alt="Runtime Comparison Chart: Apriori vs FP-Growth"
+        >
     </div>
 
 </section>
@@ -165,9 +169,7 @@
         <span class="eyebrow dark">SCALABILITY</span>
         <h2>Why scalability matters</h2>
         <p>
-            Association rule mining can be computationally
-            expensive. Understanding the trade-offs helps
-            choose the right algorithm and parameters.
+            Association rule mining can be computationally expensive. Understanding the trade-offs helps choose the right algorithm and parameters.
         </p>
     </div>
 
@@ -176,28 +178,21 @@
         <div>
             <strong>Candidate Generation</strong>
             <span>
-                Apriori repeatedly generates candidate itemsets
-                from previously discovered frequent itemsets.
-                The number of candidates can grow exponentially
-                at low support thresholds.
+                Apriori repeatedly generates candidate itemsets from previously discovered frequent itemsets. The number of candidates can grow exponentially at low support thresholds.
             </span>
         </div>
 
         <div>
             <strong>Multiple Database Scans</strong>
             <span>
-                Traditional Apriori requires one full database
-                scan per itemset size k. This is expensive on
-                very large transaction datasets.
+                Traditional Apriori requires one full database scan per itemset size k. This is expensive on very large transaction datasets.
             </span>
         </div>
 
         <div>
             <strong>Support Threshold Effect</strong>
             <span>
-                Lowering the threshold by even 1% can produce
-                dramatically more candidates and frequent itemsets,
-                increasing runtime nonlinearly.
+                Lowering the threshold by even 1% can produce dramatically more candidates and frequent itemsets, increasing runtime nonlinearly.
             </span>
         </div>
 
@@ -207,21 +202,17 @@
 
 
 <!-- =========================================================
-     FUTURE COMPARISON
+     ALGORITHM COMPARISONS
      ========================================================= -->
 
 <section class="section insight">
 
-    <span class="eyebrow dark">FUTURE COMPARISON</span>
+    <span class="eyebrow dark">ALGORITHM COMPARISONS</span>
 
     <h2>Apriori vs. FP-Growth vs. Eclat</h2>
 
     <p>
-        FP-Growth and Eclat will be implemented in the next
-        phase of this project. All three algorithms will be
-        evaluated on the same datasets with comparable
-        mining parameters to enable direct runtime and
-        scalability comparisons.
+        We evaluate different association mining algorithms on the same datasets with comparable mining parameters to enable direct runtime and scalability comparisons.
     </p>
 
     <div class="metric-explanation" style="margin-bottom:0;">
@@ -229,24 +220,21 @@
         <div>
             <strong>✓ Apriori</strong>
             <span>
-                Implemented and benchmarked.
-                Candidate generation approach.
+                Implemented and benchmarked. Candidate generation approach. Iteratively grows itemsets size-by-size.
             </span>
         </div>
 
         <div>
-            <strong>🔒 FP-Growth</strong>
+            <strong>✓ FP-Growth</strong>
             <span>
-                Coming soon — FP-tree based mining.
-                No repeated database scans required.
+                Implemented and benchmarked. Pattern-growth FP-tree based mining. Avoids candidate generation and scans database only twice.
             </span>
         </div>
 
         <div>
             <strong>🔒 Eclat</strong>
             <span>
-                Coming soon — vertical TID-set mining.
-                Uses set intersection for support counting.
+                Coming soon — vertical TID-set mining. Uses set intersection for support counting.
             </span>
         </div>
 

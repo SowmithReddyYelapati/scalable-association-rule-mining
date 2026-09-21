@@ -96,6 +96,66 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =====================================================
+       ALGORITHM SELECTION
+       ===================================================== */
+
+    const algoCards =
+        document.querySelectorAll(".algorithm-choice-card");
+
+    const algorithmInput =
+        document.getElementById("algorithmInput");
+
+    const runButtonText =
+        document.getElementById("runButtonText");
+
+    if (algoCards.length > 0 && algorithmInput) {
+
+        algoCards.forEach(function (card) {
+
+            function selectCard() {
+
+                algoCards.forEach(function (c) {
+                    c.classList.remove("selected");
+                    c.setAttribute("aria-checked", "false");
+                    const indicator = c.querySelector(".algo-indicator");
+                    if (indicator) {
+                        indicator.textContent = "Click to select";
+                    }
+                });
+
+                card.classList.add("selected");
+                card.setAttribute("aria-checked", "true");
+                const indicator = card.querySelector(".algo-indicator");
+                if (indicator) {
+                    indicator.textContent = "● Selected";
+                }
+
+                const algo = card.dataset.algo;
+                algorithmInput.value = algo;
+
+                if (runButtonText) {
+                    const displayName =
+                        algo === "fp-growth" ? "FP-Growth" : "Apriori";
+                    runButtonText.textContent = "Run " + displayName + " Analysis";
+                }
+
+            }
+
+            card.addEventListener("click", selectCard);
+
+            card.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectCard();
+                }
+            });
+
+        });
+
+    }
+
+
+    /* =====================================================
        ANALYSIS FORM — Loading state
        ===================================================== */
 
@@ -104,9 +164,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const runButton =
         document.getElementById("runAnalysisButton");
-
-    const runButtonText =
-        document.getElementById("runButtonText");
 
     const runButtonIcon =
         document.getElementById("runButtonIcon");
@@ -124,7 +181,12 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             if (runButtonText) {
-                runButtonText.textContent = "Running Apriori...";
+                const isFp =
+                    algorithmInput &&
+                    algorithmInput.value === "fp-growth";
+                runButtonText.textContent = isFp
+                    ? "Running FP-Growth..."
+                    : "Running Apriori...";
             }
 
         });
