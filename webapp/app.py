@@ -763,6 +763,15 @@ def format_results(
 
 @app.route("/static/<path:filename>")
 def serve_static(filename):
+    for candidate in [
+        static_dir,
+        BASE_DIR / "static",
+        WEBAPP_DIR / "static",
+        Path.cwd() / "static",
+        Path.cwd() / "webapp" / "static",
+    ]:
+        if candidate.exists() and (candidate / filename).is_file():
+            return send_from_directory(str(candidate), filename)
     return send_from_directory(str(static_dir), filename)
 
 
