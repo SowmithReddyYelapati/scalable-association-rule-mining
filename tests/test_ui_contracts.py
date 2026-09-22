@@ -1,4 +1,4 @@
-﻿import re
+import re
 import pytest
 from webapp.app import app, analysis_state
 
@@ -86,7 +86,7 @@ def test_algorithm_selector_exists(client):
     assert 'data-algo="apriori"' in html or 'value="apriori"' in html
     # FP-Growth card / selector
     assert "FP-GROWTH" in html
-    assert 'data-algo="fp-growth"' in html or 'value="fp-growth"' in html
+    assert 'data-algo="fp_growth"' in html or 'value="fp_growth"' in html or 'data-algo="fp-growth"' in html or 'value="fp-growth"' in html
 
 
 def test_support_input_contract(client):

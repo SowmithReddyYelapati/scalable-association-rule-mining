@@ -134,8 +134,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 algorithmInput.value = algo;
 
                 if (runButtonText) {
-                    const displayName =
-                        algo === "fp-growth" ? "FP-Growth" : "Apriori";
+                    const isFp =
+                        algo === "fp_growth" ||
+                        algo === "fp-growth" ||
+                        algo === "FP-Growth";
+                    const displayName = isFp ? "FP-Growth" : "Apriori";
                     runButtonText.textContent = "Run " + displayName + " Analysis";
                 }
 
@@ -181,9 +184,11 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             if (runButtonText) {
+                const val = algorithmInput ? algorithmInput.value : "";
                 const isFp =
-                    algorithmInput &&
-                    algorithmInput.value === "fp-growth";
+                    val === "fp_growth" ||
+                    val === "fp-growth" ||
+                    val === "FP-Growth";
                 runButtonText.textContent = isFp
                     ? "Running FP-Growth..."
                     : "Running Apriori...";

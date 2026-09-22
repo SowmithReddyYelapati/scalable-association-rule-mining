@@ -829,6 +829,149 @@ def test_fp_growth_can_be_selected():
     )
 
 
+def test_analyze_dispatch_fp_growth(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [
+            frozenset({"Milk", "Bread"}),
+            frozenset({"Milk", "Bread", "Butter"}),
+            frozenset({"Bread", "Butter"}),
+        ],
+        "product_names": {"Milk": "Milk", "Bread": "Bread", "Butter": "Butter"},
+    })
+
+    response = client.post(
+        "/analyze",
+        data={
+            "algorithm": "fp_growth",
+            "support": "0.02",
+            "confidence": "0.60",
+            "lift": "",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert analysis_state["algorithm"] == "FP-Growth"
+    html = response.get_data(as_text=True)
+    assert "FP-Growth" in html
+
+
+def test_analyze_dispatch_apriori(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [
+            frozenset({"Milk", "Bread"}),
+            frozenset({"Milk", "Bread", "Butter"}),
+            frozenset({"Bread", "Butter"}),
+        ],
+        "product_names": {"Milk": "Milk", "Bread": "Bread", "Butter": "Butter"},
+    })
+
+    response = client.post(
+        "/analyze",
+        data={
+            "algorithm": "apriori",
+            "support": "0.02",
+            "confidence": "0.60",
+            "lift": "",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert analysis_state["algorithm"] == "Apriori"
+    html = response.get_data(as_text=True)
+    assert "Apriori" in html
+
+
+def test_analyze_dispatch_fp_growth_legacy_slug(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [
+            frozenset({"Milk", "Bread"}),
+            frozenset({"Milk", "Bread", "Butter"}),
+        ],
+        "product_names": {"Milk": "Milk", "Bread": "Bread", "Butter": "Butter"},
+    })
+
+    response = client.post(
+        "/analyze",
+        data={
+            "algorithm": "fp-growth",
+            "support": "0.02",
+            "confidence": "0.60",
+            "lift": "",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert analysis_state["algorithm"] == "FP-Growth"
+
+
+def test_dashboard_retains_fp_growth_selection(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [
+            frozenset({"Milk", "Bread"}),
+            frozenset({"Milk", "Bread", "Butter"}),
+        ],
+        "product_names": {"Milk": "Milk", "Bread": "Bread", "Butter": "Butter"},
+        "algorithm": "FP-Growth",
+    })
+
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="algoCardFpGrowth"' in html
+    assert 'id="algoCardFpGrowth"\n                data-algo="fp_growth"\n                role="radio"\n                aria-checked="true"' in html or 'data-algo="fp_growth"' in html
+    assert 'value="fp_growth"' in html
+    assert 'Run FP-Growth Analysis' in html
+
+
+def test_dashboard_retains_apriori_selection(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [
+            frozenset({"Milk", "Bread"}),
+            frozenset({"Milk", "Bread", "Butter"}),
+        ],
+        "product_names": {"Milk": "Milk", "Bread": "Bread", "Butter": "Butter"},
+        "algorithm": "Apriori",
+    })
+
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'value="apriori"' in html
+    assert 'Run Apriori Analysis' in html
+
+
+def test_results_page_refresh_retains_fp_growth(client):
+    analysis_state.update({
+        "dataset_name": "test.csv",
+        "transactions": [frozenset({"Milk", "Bread"})],
+        "product_names": {},
+        "frequent_itemsets": {frozenset({"Milk"}): 1.0},
+        "rules": [],
+        "support": 0.02,
+        "confidence": 0.60,
+        "lift": None,
+        "runtime": 0.01,
+        "algorithm": "FP-Growth",
+    })
+
+    r1 = client.get("/results")
+    assert r1.status_code == 200
+    assert "FP-Growth" in r1.get_data(as_text=True)
+
+    r2 = client.get("/results")
+    assert r2.status_code == 200
+    assert "FP-Growth" in r2.get_data(as_text=True)
+    assert analysis_state["algorithm"] == "FP-Growth"
+
+
 # ============================================================
 # TRANSACTION STATE VALIDATION
 # ============================================================

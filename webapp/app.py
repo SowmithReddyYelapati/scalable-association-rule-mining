@@ -193,7 +193,7 @@ import zlib
 import base64
 
 def _encode_dataset_payload(state: dict) -> str:
-    """Compress transactions, product_names, dataset_name, metrics to base64 string."""
+    """Compress transactions, product_names, dataset_name, metrics, algorithm to base64 string."""
     try:
         if not state.get("transactions"):
             return ""
@@ -202,6 +202,7 @@ def _encode_dataset_payload(state: dict) -> str:
             "transactions": [sorted(list(t)) for t in state.get("transactions", [])],
             "product_names": state.get("product_names", {}),
             "metrics": state.get("metrics", {}),
+            "algorithm": state.get("algorithm", "Apriori"),
         }
         compressed = zlib.compress(json.dumps(data).encode("utf-8"), level=6)
         return base64.b64encode(compressed).decode("ascii")
@@ -226,6 +227,8 @@ def _decode_and_apply_dataset_payload(payload_str: str) -> None:
             analysis_state["dataset_name"] = data["dataset_name"]
         if data.get("metrics") is not None:
             analysis_state["metrics"] = data["metrics"]
+        if data.get("algorithm") is not None:
+            analysis_state["algorithm"] = data["algorithm"]
     except Exception as exc:
         print("decode_payload error:", exc)
 
@@ -1120,7 +1123,7 @@ def upload():
                     None,
 
                 "algorithm":
-                    "Apriori",
+                    analysis_state.get("algorithm", "Apriori"),
 
                 "metrics":
                     result["metrics"],
@@ -1263,7 +1266,7 @@ def map_columns():
                     None,
 
                 "algorithm":
-                    "Apriori",
+                    analysis_state.get("algorithm", "Apriori"),
 
                 "metrics":
                     result["metrics"],
@@ -1503,7 +1506,7 @@ def use_sample():
                     None,
 
                 "algorithm":
-                    "Apriori",
+                    analysis_state.get("algorithm", "Apriori"),
 
                 "metrics":
                     statistics,
@@ -1572,7 +1575,7 @@ def analyze():
     try:
 
         # ----------------------------------------------------
-        # Algorithm
+        # Algorithm Dispatch Mapping
         # ----------------------------------------------------
 
         algorithm_raw = request.form.get(
@@ -1584,32 +1587,30 @@ def analyze():
             str(algorithm_raw)
             .strip()
             .lower()
-            .replace("_", "-")
-            .replace(" ", "-")
+            .replace("-", "_")
+            .replace(" ", "_")
         )
 
         if algorithm_key in {
-            "fp-growth",
+            "fp_growth",
             "fpgrowth",
             "fp",
         }:
-
             algorithm = "FP-Growth"
+            mining_func = fp_growth
 
         elif algorithm_key == "eclat":
-
             flash(
                 "Eclat is coming soon. Please select Apriori or FP-Growth.",
                 "error",
             )
-
             return redirect(
                 url_for("dashboard")
             )
 
         else:
-
             algorithm = "Apriori"
+            mining_func = apriori
 
         # ----------------------------------------------------
         # Parameters
@@ -1726,27 +1727,14 @@ def analyze():
         # Frequent itemset mining
         # ----------------------------------------------------
 
-        if algorithm == "FP-Growth":
+        print(
+            f"Running {algorithm}..."
+        )
 
-            print(
-                "Running FP-Growth..."
-            )
-
-            frequent_itemsets = fp_growth(
-                transactions,
-                support,
-            )
-
-        else:
-
-            print(
-                "Running Apriori..."
-            )
-
-            frequent_itemsets = apriori(
-                transactions,
-                support,
-            )
+        frequent_itemsets = mining_func(
+            transactions,
+            support,
+        )
 
         print(
             "Frequent itemsets found:",

@@ -452,7 +452,7 @@
             type="hidden"
             name="algorithm"
             id="algorithmInput"
-            value="{{ 'fp-growth' if analysis.algorithm == 'FP-Growth' else 'apriori' }}"
+            value="{{ 'fp_growth' if analysis.algorithm in ['FP-Growth', 'fp_growth', 'fp-growth'] else 'apriori' }}"
         >
 
         <!-- Hidden input for dataset payload for serverless state recovery -->
@@ -479,11 +479,11 @@
 
             <!-- APRIORI CARD -->
             <div
-                class="algorithm-choice-card {% if analysis.algorithm != 'FP-Growth' %}selected{% endif %}"
+                class="algorithm-choice-card {% if analysis.algorithm not in ['FP-Growth', 'fp_growth', 'fp-growth'] %}selected{% endif %}"
                 id="algoCardApriori"
                 data-algo="apriori"
                 role="radio"
-                aria-checked="{% if analysis.algorithm != 'FP-Growth' %}true{% else %}false{% endif %}"
+                aria-checked="{% if analysis.algorithm not in ['FP-Growth', 'fp_growth', 'fp-growth'] %}true{% else %}false{% endif %}"
                 tabindex="0"
             >
                 <div class="algo-choice-header">
@@ -503,7 +503,7 @@
 
                 <div class="algo-choice-footer">
                     <span class="algo-indicator">
-                        {% if analysis.algorithm != 'FP-Growth' %}● Selected{% else %}Click to select{% endif %}
+                        {% if analysis.algorithm not in ['FP-Growth', 'fp_growth', 'fp-growth'] %}● Selected{% else %}Click to select{% endif %}
                     </span>
                     <span class="algo-spec">Agrawal &amp; Srikant (1994)</span>
                 </div>
@@ -512,11 +512,11 @@
 
             <!-- FP-GROWTH CARD -->
             <div
-                class="algorithm-choice-card {% if analysis.algorithm == 'FP-Growth' %}selected{% endif %}"
+                class="algorithm-choice-card {% if analysis.algorithm in ['FP-Growth', 'fp_growth', 'fp-growth'] %}selected{% endif %}"
                 id="algoCardFpGrowth"
-                data-algo="fp-growth"
+                data-algo="fp_growth"
                 role="radio"
-                aria-checked="{% if analysis.algorithm == 'FP-Growth' %}true{% else %}false{% endif %}"
+                aria-checked="{% if analysis.algorithm in ['FP-Growth', 'fp_growth', 'fp-growth'] %}true{% else %}false{% endif %}"
                 tabindex="0"
             >
                 <div class="algo-choice-header">
@@ -536,7 +536,7 @@
 
                 <div class="algo-choice-footer">
                     <span class="algo-indicator">
-                        {% if analysis.algorithm == 'FP-Growth' %}● Selected{% else %}Click to select{% endif %}
+                        {% if analysis.algorithm in ['FP-Growth', 'fp_growth', 'fp-growth'] %}● Selected{% else %}Click to select{% endif %}
                     </span>
                     <span class="algo-spec">Han et al. (2000)</span>
                 </div>
@@ -574,7 +574,7 @@
                     <div
                         class="parameter-value"
                         id="supportValue"
-                    >2.0%</div>
+                    >{{ "%.1f"|format((analysis.support or 0.02) * 100) }}%</div>
                 </div>
 
                 <div class="slider-wrapper">
@@ -586,7 +586,7 @@
                         min="0.001"
                         max="0.10"
                         step="0.001"
-                        value="0.02"
+                        value="{{ analysis.support or '0.02' }}"
                         aria-label="Minimum support percentage"
                     >
 
@@ -623,7 +623,7 @@
                     <div
                         class="parameter-value"
                         id="confidenceValue"
-                    >60%</div>
+                    >{{ "%.0f"|format((analysis.confidence or 0.60) * 100) }}%</div>
                 </div>
 
                 <div class="slider-wrapper">
@@ -635,7 +635,7 @@
                         min="0.10"
                         max="1.00"
                         step="0.01"
-                        value="0.60"
+                        value="{{ analysis.confidence or '0.60' }}"
                         aria-label="Minimum confidence percentage"
                     >
 
@@ -683,6 +683,7 @@
                         step="0.1"
                         placeholder="1.0"
                         class="lift-number-input"
+                        value="{{ analysis.lift if analysis.lift is not none and analysis.lift != '' else '' }}"
                     >
                 </div>
             </div>
@@ -704,7 +705,7 @@
         >
             <span id="runButtonIcon">🚀</span>
             <span id="runButtonText">
-                {% if analysis.algorithm == 'FP-Growth' %}
+                {% if analysis.algorithm in ['FP-Growth', 'fp_growth', 'fp-growth'] %}
                     Run FP-Growth Analysis
                 {% else %}
                     Run Apriori Analysis
